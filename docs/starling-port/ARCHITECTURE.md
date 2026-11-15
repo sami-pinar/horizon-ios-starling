@@ -39,7 +39,9 @@ Two modes, switched by the button at the top right and remembered in `Documents/
 * **Tap**: the finger is the pointer. This reuses the port's direct gestures (`touch_menu`), so sliders, slots
   and text fields keep working. No cursor is drawn.
 * **Cursor**: a trackpad.
-  * Left quarter of the screen: two mouse-button zones (upper left click, lower right click), held while touched.
+  * Left quarter of the screen: two mouse-button zones (upper left click, lower right click), held while touched,
+    taking two thirds of its width; a thin full-height strip takes the last third and holds Shift, so a click on
+    a slot while it is held is a shift-click. The launcher's Settings has a toggle to hide all three (they still work).
   * Remaining three quarters: dragging moves the cursor (speed-dependent gain); a tap clicks at the cursor;
     a long press right-clicks; tap, then press and hold (or drag) holds the left button; two fingers scroll.
   * Button edges are queued two frames ahead, one frame apart, so widgets find the pointer (they are located

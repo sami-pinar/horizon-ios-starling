@@ -2,6 +2,15 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-15: Cursor mode refinements, shift strip
+* The cursor is a Minecraft-style crosshair (white plus, dark edge); the mode button shows the same crosshair.
+* Cursor speed is a constant 1.5 times the finger's travel (it was speed-dependent, up to 2.6).
+* Two-finger scroll collects finger travel and sends whole lines (the game's lists ignore fractions).
+* New **shift strip** in the left quarter: the mouse buttons take two thirds of its width, a full-height strip
+  half their width takes the rest and holds Shift (shift-click). Icon: shift arrow, plus, mouse.
+* Launcher Settings gained "Hide click zones in cursor mode" (bit 64 of the touch flags); the zones still work.
+* The top row (debug, chat, pause, camera) is re-centred with no gap where the settings button was.
+
 ## 2026-11-15: Menu input, hidden settings button, docs
 * **Menu input rewritten** (`game/touch/starling_menu.rs`). Two modes with a button at the top right: *tap* (the
   finger is the pointer, no cursor) and *cursor* (trackpad: left quarter is left/right click zones, the rest moves

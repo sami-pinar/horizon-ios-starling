@@ -14,7 +14,10 @@ use horizon_client::{
     touch,
 };
 use std::time::{Duration, Instant};
-use winit::event::{MouseButton, Touch, TouchPhase};
+use winit::{
+    event::{MouseButton, Touch, TouchPhase},
+    keyboard::KeyCode,
+};
 
 /// How far (GUI pixels) a finger travels before a tap becomes a drag.
 const SLOP: f32 = 5.0;
@@ -39,6 +42,8 @@ enum Role {
     Direct,
     /// A mouse button zone; `true` for the right button.
     Zone(bool),
+    /// The long thin strip beside them: holds Shift, so a click is a shift-click.
+    Shift,
     /// Moves the cursor.
     Pad,
     /// One of two fingers that scroll.
@@ -91,9 +96,16 @@ pub fn toggle_rect(w: f32, h: f32) -> touch::Rect {
     [w - s - 24.0, 10.0, s, s]
 }
 
+/// The left quarter holds the click zones: the two mouse buttons take two thirds of its width, and the shift
+/// strip, half as wide as a button but the whole height, the last third.
 fn zone_rect(w: f32, h: f32, right: bool) -> touch::Rect {
     let top = if right { h / 2.0 } else { 0.0 };
-    [0.0, top, w / 4.0, h / 2.0]
+    [0.0, top, w / 4.0 * 2.0 / 3.0, h / 2.0]
+}
+
+fn shift_rect(w: f32, h: f32) -> touch::Rect {
+    let x = w / 4.0 * 2.0 / 3.0;
+    [x, 0.0, w / 4.0 - x, h]
 }
 
 impl Game<'_> {
@@ -126,6 +138,14 @@ impl Game<'_> {
         // Track the logical state at queue time, for `release` to know what to let go of.
         menu.down[index] = down;
     }
+
+    /// Shift down or up, for a shift-click on the strip.
+    #[cfg(target_os = "ios")]
+    fn starling_menu_shift(&mut self, down: bool) {
+        let _ = self.touch_raw_key(KeyCode::ShiftLeft, down);
+    }
+    #[cfg(not(target_os = "ios"))]
+    fn starling_menu_shift(&mut self, _down: bool) {}
 
     fn starling_menu_click(&mut self, button: MouseButton) {
         self.starling_menu_edge(button, true);
@@ -179,6 +199,9 @@ impl Game<'_> {
         {
             finger.role = Role::Direct;
             self.touch_menu(event_loop, id, TouchPhase::Started, at);
+        } else if touch::hit_rect(shift_rect(w, h), at) {
+            finger.role = Role::Shift;
+            self.starling_menu_shift(true);
         } else if at.0 < w / 4.0 {
             let right = at.1 >= h / 2.0;
             finger.role = Role::Zone(right);
@@ -282,7 +305,7 @@ impl Game<'_> {
                     self.touch_wheel(event_loop, lines);
                 }
             }
-            Role::Toggle | Role::Zone(_) => {}
+            Role::Toggle | Role::Zone(_) | Role::Shift => {}
         }
     }
 
@@ -343,6 +366,7 @@ impl Game<'_> {
                     self.touch.starling_menu.last_tap = None;
                 }
             }
+            Role::Shift => self.starling_menu_shift(false),
             Role::Scroll | Role::Toggle => {}
         }
     }
@@ -365,6 +389,9 @@ impl Game<'_> {
         let fingers = std::mem::take(&mut self.touch.starling_menu.fingers);
         if fingers.iter().any(|f| f.role == Role::Direct) {
             self.touch_release_menu(event_loop);
+        }
+        if fingers.iter().any(|f| f.role == Role::Shift) {
+            self.starling_menu_shift(false);
         }
         let menu = &mut self.touch.starling_menu;
         menu.edges.clear();
@@ -443,6 +470,14 @@ impl Game<'_> {
                 );
             }
         }
+        if cursor_mode && !touch::mouse_zones_hidden() {
+            let r = shift_rect(w, h);
+            let held = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Shift);
+            let inset = 6.0;
+            let plate_r = [r[0] + inset * 0.5, r[1] + inset, r[2] - inset * 1.5, r[3] - inset * 2.0];
+            plate(batch, atlas, plate_r, held, 120);
+            shift_icon(batch, atlas, plate_r, held);
+        }
         // The mode button shows the current mode: an arrow in cursor mode, a touch ring in tap mode.
         let r = toggle_rect(w, h);
         let pressed = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Toggle);
@@ -514,6 +549,7 @@ fn pixels(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32, rows: &[&str]) {
                 '#' => rgba(255, 255, 255, 255),
                 'X' => rgba(16, 16, 20, 255),
                 'o' => rgba(170, 170, 178, 255),
+                'g' => rgba(255, 214, 82, 255),
                 _ => {
                     column += 1;
                     continue;
@@ -546,6 +582,39 @@ fn crosshair(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32) {
     b.fill(a, cx - 1.5 * u, cy - (arm + 1.0) * u, 3.0 * u, (arm * 2.0 + 3.0) * u, dark);
     b.fill(a, cx - arm * u, cy - 0.5 * u, (arm * 2.0 + 1.0) * u, u, white);
     b.fill(a, cx - 0.5 * u, cy - arm * u, u, (arm * 2.0 + 1.0) * u, white);
+}
+
+/// Shift plus a click: the shift arrow over a plus over a mouse with its left button lit. Gold while held.
+fn shift_icon(b: &mut HudBatch, a: &HudAtlas, r: touch::Rect, held: bool) {
+    const ARROW: [&str; 10] = [
+        "....#....",
+        "...###...",
+        "..#####..",
+        ".#######.",
+        "#########",
+        "...###...",
+        "...###...",
+        "...###...",
+        "...###...",
+        "...###...",
+    ];
+    const PLUS: [&str; 5] = ["..#..", "..#..", "#####", "..#..", "..#.."];
+    let u = (r[2] * 0.62 / 9.0).max(1.0);
+    let rows: Vec<String> = ARROW
+        .iter()
+        .map(|row| if held { row.replace('#', "g") } else { (*row).to_owned() })
+        .collect();
+    let rows: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let mouse_u = u * 0.8;
+    let gap = u * 1.6;
+    let total = 10.0 * u + gap + 5.0 * u * 0.8 + gap + 13.0 * mouse_u;
+    let mut y = r[1] + (r[3] - total) / 2.0;
+    let cx = r[0] + r[2] / 2.0;
+    pixels(b, a, [cx - 4.5 * u, y], u, &rows);
+    y += 10.0 * u + gap;
+    pixels(b, a, [cx - 2.5 * u * 0.8, y], u * 0.8, &PLUS);
+    y += 5.0 * u * 0.8 + gap;
+    mouse_icon(b, a, [cx - 5.5 * mouse_u, y], mouse_u, false);
 }
 
 /// A touch ring with a dot: tap mode.
