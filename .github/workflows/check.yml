@@ -3,7 +3,7 @@ name: check
 on:
   workflow_dispatch:
   push:
-    branches: [starling-look]
+    branches: [starling-look, starling-engine]
 permissions:
   contents: read
 env:
