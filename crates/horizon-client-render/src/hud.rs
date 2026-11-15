@@ -611,6 +611,41 @@ fn builtin_touch_sprites(images: &[PackedImage]) -> Vec<PackedImage> {
         })
         .collect()
 }
+/// The Bedrock touch-control textures the player fetched into `gui/bedrock` (Starling's controls look for
+/// `gui/bedrock/ui/jump`, `gui/bedrock/controls/up`, ...). Read from the folder itself: a prepared root's
+/// folder listing comes from its data file, which does not know them.
+fn bedrock_control_sprites(root: &Path, images: &[PackedImage]) -> Vec<PackedImage> {
+    fn collect(dir: &Path, prefix: &str, out: &mut Vec<(String, PathBuf)>) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|n| n.to_str()).map(str::to_owned) else {
+                continue;
+            };
+            if path.is_dir() {
+                collect(&path, &format!("{prefix}{name}/"), out);
+            } else if let Some(stem) = name.strip_suffix(".png") {
+                out.push((format!("{prefix}{stem}"), path));
+            }
+        }
+    }
+    let mut found = Vec::new();
+    collect(
+        &root.join("assets/minecraft/textures/gui/bedrock"),
+        "gui/bedrock/",
+        &mut found,
+    );
+    found
+        .into_iter()
+        .filter(|(key, _)| !images.iter().any(|(k, ..)| k == key))
+        .filter_map(|(key, path)| {
+            let (w, h, pixels) = decode_bytes(&fs::read(path).ok()?).ok()?;
+            Some((key, w, h, pixels))
+        })
+        .collect()
+}
 /// A frame of an animated strip at `x, y`, nearest-resampled to the longer
 /// side of the frame: array layers are square, as `Sprites::load` keeps them
 /// for the world's sprite arrays.
@@ -1643,6 +1678,8 @@ impl HudAtlas {
         // The menus' atlas too: the touch layout editor works before a world.
         let touch = builtin_touch_sprites(&images);
         images.extend(touch);
+        let bedrock = bedrock_control_sprites(root, &images);
+        images.extend(bedrock);
         // The title screen's "JAVA EDITION" banner reads "RUST EDITION".
         if let Some(edition) = images
             .iter_mut()
