@@ -28,3 +28,10 @@ The Apple ID itself is only ever entered by the person who owns it.
 
 The app reads prepared game files from `Documents/resources` (marker `horizon-resources.json`). They are copied in
 from a local Horizon launcher install and are never committed.
+
+## Copying files to a phone: never `--remove-existing-content`
+
+`devicectl device copy to ... --remove-existing-content true` empties the destination's whole container, not just
+the path given: it wiped the game files, packs and worlds from a phone twice. Copy without it (existing files are
+skipped when unchanged), and repeat a big copy until the entry count matches (an open-file limit stops long
+copies partway; `ulimit -n 10240` helps).
