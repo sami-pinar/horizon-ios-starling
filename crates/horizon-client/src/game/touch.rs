@@ -1957,6 +1957,74 @@ impl Game<'_> {
             .collect()
     }
 }
+const WHITE: u32 = rgba(255, 255, 255, 255);
+
+/// Starling's sprite for a control (its D-pad arrows, buttons and icons); Sprint, More and Hide keep their
+/// labelled buttons.
+fn starling_name(c: Control) -> Option<&'static str> {
+    Some(match c {
+        Control::Forward => "dpad_up",
+        Control::Back => "dpad_down",
+        Control::Left => "dpad_left",
+        Control::Right => "dpad_right",
+        Control::Sneak => "sneak",
+        Control::Jump => "jump",
+        Control::Perspective => "camera",
+        Control::Chat => "chat",
+        Control::Pause => "pause",
+        Control::Inventory => "inventory",
+        Control::LeftClick => "attack",
+        Control::RightClick => "use",
+        Control::MiddleClick => "pick",
+        Control::Runtime => "command",
+        Control::Debug => "debug",
+        Control::PlayerList => "players",
+        _ => return None,
+    })
+}
+
+fn has_starling_sprite(atlas: &horizon_client::hud::HudAtlas, name: &str) -> bool {
+    atlas
+        .sprites
+        .contains_key(&horizon_client::hud::touch_sprite_key(name))
+}
+
+/// A Starling sprite fitted inside `r` and centred, keeping its proportions. False without such a sprite.
+fn starling_sprite(
+    batch: &mut HudBatch,
+    atlas: &horizon_client::hud::HudAtlas,
+    name: &str,
+    r: touch::Rect,
+    color: u32,
+) -> bool {
+    let Some(rect) = atlas
+        .sprites
+        .get(&horizon_client::hud::touch_sprite_key(name))
+        .copied()
+    else {
+        return false;
+    };
+    let scale = (r[2] / rect.w as f32).min(r[3] / rect.h as f32);
+    let (w, h) = (rect.w as f32 * scale, rect.h as f32 * scale);
+    batch.rect_uv(r[0] + (r[2] - w) / 2.0, r[1] + (r[3] - h) / 2.0, w, h, rect, color);
+    true
+}
+
+/// A Starling button: its `_pressed` twin while held, else the sprite itself, darker.
+fn starling_button(
+    batch: &mut HudBatch,
+    atlas: &horizon_client::hud::HudAtlas,
+    name: &str,
+    r: touch::Rect,
+    held: bool,
+) -> bool {
+    if !held {
+        return starling_sprite(batch, atlas, name, r, WHITE);
+    }
+    starling_sprite(batch, atlas, &format!("{name}_pressed"), r, WHITE)
+        || starling_sprite(batch, atlas, name, r, rgba(179, 179, 179, 255))
+}
+
 fn draw_amethyst_control(
     batch: &mut HudBatch,
     atlas: &horizon_client::hud::HudAtlas,
@@ -1968,20 +2036,35 @@ fn draw_amethyst_control(
     let start = batch.vertices.len();
     if c == Control::Joystick {
         let centre = (r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
-        horizon_client::ui_theme::touch_disc(
-            atlas,
-            batch,
-            centre,
-            r[2] * 0.375 + 0.25,
-            rgba(0, 0, 0, 77),
-        );
-        horizon_client::ui_theme::touch_disc(
-            atlas,
-            batch,
-            point.unwrap_or(centre),
-            r[2] / 8.0,
-            rgba(0, 0, 0, 255),
-        );
+        if has_starling_sprite(atlas, "stick") && has_starling_sprite(atlas, "stick_knob") {
+            starling_sprite(batch, atlas, "stick", r, WHITE);
+            let side = r[2] * 0.42;
+            let at = point.unwrap_or(centre);
+            starling_sprite(
+                batch,
+                atlas,
+                "stick_knob",
+                [at.0 - side / 2.0, at.1 - side / 2.0, side, side],
+                WHITE,
+            );
+        } else {
+            horizon_client::ui_theme::touch_disc(
+                atlas,
+                batch,
+                centre,
+                r[2] * 0.375 + 0.25,
+                rgba(0, 0, 0, 77),
+            );
+            horizon_client::ui_theme::touch_disc(
+                atlas,
+                batch,
+                point.unwrap_or(centre),
+                r[2] / 8.0,
+                rgba(0, 0, 0, 255),
+            );
+        }
+    } else if starling_name(c).is_some_and(|name| starling_button(batch, atlas, name, r, held)) {
+        // Drawn with Starling's Minecraft-style sprite.
     } else {
         let label = match c {
             Control::More => "More",

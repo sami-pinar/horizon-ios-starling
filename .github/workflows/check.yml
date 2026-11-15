@@ -20,6 +20,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: check-render
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev pkg-config
+      - name: Check the game crate
+        run: cargo check --locked -p horizon-client
       - name: Check the render crate
         run: cargo check --locked -p horizon-client-render --tests
       - name: Touch drawing tests
