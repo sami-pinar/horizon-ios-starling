@@ -85,10 +85,25 @@ pub(in crate::game) struct StarlingMenu {
     scroll: f32,
     /// The shift strip is held: a click is a shift-click.
     pub(super) shift: bool,
+    /// The eye button hid the click zones.
+    zones_hidden: bool,
 }
 
 fn mode_path() -> Option<std::path::PathBuf> {
     Some(std::path::PathBuf::from(std::env::var_os("HOME")?).join("Documents/starling-ui-mode.txt"))
+}
+
+/// The saved state: the words `cursor` and `hidden`, in any order (`tap` and nothing else when neither).
+fn save_state(cursor: bool, hidden: bool) {
+    if let Some(path) = mode_path() {
+        let text = match (cursor, hidden) {
+            (true, true) => "cursor hidden",
+            (true, false) => "cursor",
+            (false, true) => "tap hidden",
+            (false, false) => "tap",
+        };
+        let _ = std::fs::write(path, text);
+    }
 }
 
 /// The mode button: the top right, kept inside a phone's rounded corner.
@@ -97,16 +112,26 @@ pub fn toggle_rect(w: f32, h: f32) -> touch::Rect {
     [w - s - 24.0, 10.0, s, s]
 }
 
-/// The left quarter holds the click zones: the two mouse buttons take two thirds of its width, and the shift
-/// strip, half as wide as a button but the whole height, the last third.
+/// The click zones take a quarter and a half of the screen's width: the two mouse buttons two thirds of that,
+/// and the shift strip, half as wide as a button but the whole height, the last third.
+fn zones_width(w: f32) -> f32 {
+    w * 0.375
+}
+
 fn zone_rect(w: f32, h: f32, right: bool) -> touch::Rect {
     let top = if right { h / 2.0 } else { 0.0 };
-    [0.0, top, w / 4.0 * 2.0 / 3.0, h / 2.0]
+    [0.0, top, zones_width(w) * 2.0 / 3.0, h / 2.0]
 }
 
 fn shift_rect(w: f32, h: f32) -> touch::Rect {
-    let x = w / 4.0 * 2.0 / 3.0;
-    [x, 0.0, w / 4.0 - x, h]
+    let x = zones_width(w) * 2.0 / 3.0;
+    [x, 0.0, zones_width(w) - x, h]
+}
+
+/// The eye button under the mode button: shows or hides the click zones.
+fn eye_rect(w: f32, h: f32) -> touch::Rect {
+    let t = toggle_rect(w, h);
+    [t[0], t[1] + t[3] + 6.0, t[2], t[3]]
 }
 
 impl Game<'_> {
@@ -115,9 +140,11 @@ impl Game<'_> {
             return;
         }
         self.touch.starling_menu.loaded = true;
-        self.touch.starling_menu.cursor_mode = mode_path()
+        let saved = mode_path()
             .and_then(|path| std::fs::read_to_string(path).ok())
-            .is_some_and(|text| text.trim() == "cursor");
+            .unwrap_or_default();
+        self.touch.starling_menu.cursor_mode = saved.split_whitespace().any(|word| word == "cursor");
+        self.touch.starling_menu.zones_hidden = saved.split_whitespace().any(|word| word == "hidden");
     }
 
     fn starling_menu_cursor(&self) -> bool {
@@ -193,6 +220,9 @@ impl Game<'_> {
         if touch::hit_rect(toggle_rect(w, h), at) {
             finger.role = Role::Toggle;
             self.starling_menu_switch(event_loop);
+        } else if self.starling_menu_cursor() && touch::hit_rect(eye_rect(w, h), at) {
+            finger.role = Role::Toggle;
+            self.starling_menu_eye();
         } else if touch::hit_rect(touch::close_rect(w, h), at) && self.touch_close_shown()
             || touch::hit_rect(touch::keyboard_rect(w, h), at) && self.field_focused()
             || !self.starling_menu_cursor()
@@ -202,7 +232,7 @@ impl Game<'_> {
         } else if touch::hit_rect(shift_rect(w, h), at) {
             finger.role = Role::Shift;
             self.starling_menu_shift(true);
-        } else if at.0 < w / 4.0 {
+        } else if at.0 < zones_width(w) {
             let right = at.1 >= h / 2.0;
             finger.role = Role::Zone(right);
             self.starling_menu_edge(
@@ -379,9 +409,19 @@ impl Game<'_> {
         if menu.cursor_mode {
             menu.at = Some(self.cursor);
         }
-        if let Some(path) = mode_path() {
-            let _ = std::fs::write(path, if menu.cursor_mode { "cursor" } else { "tap" });
-        }
+        save_state(menu.cursor_mode, menu.zones_hidden);
+    }
+
+    /// Show or hide the click zones (they keep working hidden).
+    fn starling_menu_eye(&mut self) {
+        let menu = &mut self.touch.starling_menu;
+        menu.zones_hidden = !menu.zones_hidden;
+        save_state(menu.cursor_mode, menu.zones_hidden);
+    }
+
+    /// The zones are not drawn: the eye button hid them, or the launcher's setting does.
+    fn starling_menu_zones_hidden(&self) -> bool {
+        self.touch.starling_menu.zones_hidden || touch::mouse_zones_hidden()
     }
 
     /// Lets go of every finger and button: the screen changed, the world started, or the mode switched.
@@ -450,7 +490,8 @@ impl Game<'_> {
         let keyboard = self.touch_shown() && self.field_focused();
         let atlas = &self.gui.atlas;
         let cursor_mode = self.touch.starling_menu.cursor_mode;
-        if cursor_mode && !touch::mouse_zones_hidden() {
+        let zones_hidden = self.starling_menu_zones_hidden();
+        if cursor_mode && !zones_hidden {
             for right in [false, true] {
                 let r = zone_rect(w, h, right);
                 let held = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Zone(right));
@@ -470,7 +511,7 @@ impl Game<'_> {
                 );
             }
         }
-        if cursor_mode && !touch::mouse_zones_hidden() {
+        if cursor_mode && !zones_hidden {
             let r = shift_rect(w, h);
             let held = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Shift);
             let inset = 6.0;
@@ -478,14 +519,20 @@ impl Game<'_> {
             plate(batch, atlas, plate_r, held, 120);
             shift_icon(batch, atlas, plate_r, held);
         }
-        // The mode button shows the current mode: an arrow in cursor mode, a touch ring in tap mode.
+        // The mode button shows the current mode: a reticle in cursor mode, a touch ripple in tap mode.
         let r = toggle_rect(w, h);
         let pressed = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Toggle);
         plate(batch, atlas, r, pressed, 190);
+        let centre = plate_centre(atlas, r);
         if cursor_mode {
-            crosshair(batch, atlas, [r[0] + r[2] / 2.0, r[1] + r[3] / 2.0], r[3] * 0.62 / 11.0);
+            reticle_icon(batch, atlas, centre);
         } else {
-            ring_icon(batch, atlas, [r[0] + r[2] / 2.0, r[1] + r[3] / 2.0], r[3] * 0.62 / 13.0);
+            ripple_icon(batch, atlas, centre);
+        }
+        if cursor_mode {
+            let r = eye_rect(w, h);
+            plate(batch, atlas, r, false, 190);
+            eye_icon(batch, atlas, plate_centre(atlas, r), zones_hidden);
         }
         if self.touch_close_shown() {
             let held = self
@@ -617,23 +664,105 @@ fn shift_icon(b: &mut HudBatch, a: &HudAtlas, r: touch::Rect, held: bool) {
     mouse_icon(b, a, [cx - 5.5 * mouse_u, y], mouse_u, false);
 }
 
-/// A touch ring with a dot: tap mode.
-fn ring_icon(b: &mut HudBatch, a: &HudAtlas, center: [f32; 2], u: f32) {
-    for row in 0..13 {
-        for col in 0..13 {
-            let d = ((col as f32 - 6.0).powi(2) + (row as f32 - 6.0).powi(2)).sqrt();
-            let color = if d <= 1.7 {
-                Some(rgba(255, 255, 255, 255))
-            } else if (4.4..=6.3).contains(&d) {
-                Some(rgba(255, 255, 255, 255))
-            } else {
-                None
-            };
-            if let Some(color) = color {
-                b.fill(a, center[0] + (col as f32 - 6.5) * u, center[1] + (row as f32 - 6.5) * u, u, u, color);
+/// Where an icon's middle is on a plate: the Bedrock plate's face sits a little above and left of its box, so
+/// the icon is moved with it.
+fn plate_centre(a: &HudAtlas, r: touch::Rect) -> [f32; 2] {
+    let (dx, dy) = if a.sprites.contains_key("gui/bedrock/ui/joystick_knob") {
+        (-0.5 / 32.0, -1.5 / 32.0)
+    } else {
+        (0.0, 0.0)
+    };
+    [
+        (r[0] + r[2] * (0.5 + dx)).round(),
+        (r[1] + r[3] * (0.5 + dy)).round(),
+    ]
+}
+
+/// A pixel picture of 1-GUI-pixel cells whose middle cell sits on `centre`, with a soft shadow under it.
+fn glyph(b: &mut HudBatch, a: &HudAtlas, centre: [f32; 2], size: i32, cell: impl Fn(i32, i32) -> Option<u32>) {
+    let half = size / 2;
+    for pass in 0..2 {
+        for j in 0..size {
+            for i in 0..size {
+                let Some(color) = cell(i - half, j - half) else {
+                    continue;
+                };
+                let (color, shift) = if pass == 0 { (rgba(0, 0, 0, 120), 1.0) } else { (color, 0.0) };
+                b.fill(
+                    a,
+                    centre[0] + (i - half) as f32 + shift,
+                    centre[1] + (j - half) as f32 + shift,
+                    1.0,
+                    1.0,
+                    color,
+                );
             }
         }
     }
+}
+
+/// Cursor mode: a reticle, a thin ring with four ticks and a dot, symmetrical about its middle pixel.
+fn reticle_icon(b: &mut HudBatch, a: &HudAtlas, centre: [f32; 2]) {
+    let white = rgba(255, 255, 255, 255);
+    let soft = rgba(255, 255, 255, 150);
+    glyph(b, a, centre, 17, |x, y| {
+        let d = ((x * x + y * y) as f32).sqrt();
+        if (6.4..=7.6).contains(&d) {
+            Some(soft)
+        } else if (x == 0 && (2..=4).contains(&y.abs())) || (y == 0 && (2..=4).contains(&x.abs())) {
+            Some(white)
+        } else if x == 0 && y == 0 {
+            Some(white)
+        } else {
+            None
+        }
+    });
+}
+
+/// Tap mode: a touch ripple, an outer ring, an inner ring and a dot.
+fn ripple_icon(b: &mut HudBatch, a: &HudAtlas, centre: [f32; 2]) {
+    let white = rgba(255, 255, 255, 255);
+    let soft = rgba(255, 255, 255, 120);
+    glyph(b, a, centre, 17, |x, y| {
+        let d = ((x * x + y * y) as f32).sqrt();
+        if (6.4..=7.6).contains(&d) {
+            Some(soft)
+        } else if (3.4..=4.5).contains(&d) {
+            Some(white)
+        } else if d <= 1.2 {
+            Some(white)
+        } else {
+            None
+        }
+    });
+}
+
+/// An eye for showing or hiding the click zones; struck through in red while they are hidden.
+fn eye_icon(b: &mut HudBatch, a: &HudAtlas, centre: [f32; 2], hidden: bool) {
+    const EYE: [&str; 9] = [
+        "....#####....",
+        "..##.....##..",
+        ".#....#....#.",
+        "#....###....#",
+        "#...#####...#",
+        "#....###....#",
+        ".#....#....#.",
+        "..##.....##..",
+        "....#####....",
+    ];
+    let tone = if hidden { rgba(170, 170, 178, 255) } else { rgba(255, 255, 255, 255) };
+    let strike = rgba(236, 84, 84, 255);
+    glyph(b, a, centre, 15, |x, y| {
+        let (col, row) = (x + 6, y + 4);
+        if (0..13).contains(&col) && (0..9).contains(&row) && EYE[row as usize].as_bytes()[col as usize] == b'#' {
+            return Some(tone);
+        }
+        // The strike runs from the top right to the bottom left, two cells thick.
+        if hidden && (x + y).abs() <= 1 && x.abs() <= 6 {
+            return Some(strike);
+        }
+        None
+    });
 }
 
 /// A mouse with the left or right button lit.

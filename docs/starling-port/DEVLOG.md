@@ -2,6 +2,16 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-15: Chat typing bar, wider zones, eye toggle, new icons
+* **Chat**: the phone's keyboard covers the chat box, so typed text is now shown again in a bar near the top, with a
+  blinking caret and a placeholder (`chat.rs: draw_typing_bar`).
+* The click zones are 1.5 quarters of the screen wide (the buttons were too thin): mouse buttons two thirds of it,
+  the shift strip a third.
+* An **eye button** under the mode button (cursor mode) hides or shows the zones; hidden, they still work and
+  click as usual. Remembered in `Documents/starling-ui-mode.txt` (`cursor hidden`); the launcher's setting also hides.
+* Mode icons redrawn: a reticle (cursor) and a touch ripple (tap), centred on the plate's face (the Bedrock plate
+  sits off its box), with a soft shadow; eye icon struck through in red while hidden.
+
 ## 2026-11-15: Cursor mode refinements, shift strip
 * The cursor is a Minecraft-style crosshair (white plus, dark edge); the mode button shows the same crosshair.
 * Cursor speed is a constant 1.5 times the finger's travel (it was speed-dependent, up to 2.6).

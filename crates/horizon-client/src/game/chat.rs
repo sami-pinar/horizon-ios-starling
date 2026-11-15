@@ -1841,6 +1841,66 @@ impl Game<'_> {
         }
         Some(horizon_protocol::crypto::uuid_string(bits))
     }
+    /// What is being typed, in a bar near the top of the screen, with its caret: the system keyboard hides the
+    /// chat box itself. The text is cut from the left so the caret always shows.
+    fn draw_typing_bar(&self, batch: &mut HudBatch, text: &str, cursor: usize) {
+        use horizon_client::hud_layout::{GuiDraw, fill};
+        let font = &self.gui.atlas.font;
+        let width = (batch.width as i32 * 7 / 10).max(200);
+        let x = (batch.width as i32 - width) / 2;
+        let height = 18;
+        let y = (batch.height as i32 * 20 / 100).max(14);
+        let chars: Vec<char> = text.chars().collect();
+        let caret = cursor.min(chars.len());
+        let room = (width - 14) as f32;
+        let mut start = 0;
+        while start < caret
+            && font.width(&chars[start..caret].iter().collect::<String>()) > room
+        {
+            start += 1;
+        }
+        // And the end of what is shown, if the text goes on past the box.
+        let mut end = chars.len();
+        while end > caret && font.width(&chars[start..end].iter().collect::<String>()) > room {
+            end -= 1;
+        }
+        let shown: String = chars[start..end].iter().collect();
+        let before: String = chars[start..caret].iter().collect();
+        let caret_x = x + 7 + font.width(&before).round() as i32;
+        let blink = self
+            .ui
+            .chat_opened
+            .map_or(0, |t| t.elapsed().as_millis() as u64)
+            % 1000
+            < 520;
+        let mut draws = vec![
+            fill(x - 2, y - 2, x + width + 2, y + height + 2, 0xE0_00_00_00),
+            fill(x - 1, y - 1, x + width + 1, y + height + 1, 0xFF_A0_A0_A0),
+            fill(x, y, x + width, y + height, 0xFF_00_00_00),
+        ];
+        if shown.is_empty() {
+            draws.push(GuiDraw::Text {
+                text: horizon_client::text::Text::literal("Type a message…".to_owned()),
+                x: x + 7,
+                y: y + 5,
+                color: 0xFF_70_70_70,
+                shadow: false,
+            });
+        } else {
+            draws.push(GuiDraw::Text {
+                text: horizon_client::text::Text::literal(shown),
+                x: x + 7,
+                y: y + 5,
+                color: 0xFF_FF_FF_FF,
+                shadow: true,
+            });
+        }
+        if blink {
+            draws.push(fill(caret_x, y + 3, caret_x + 1, y + height - 3, 0xFF_FF_FF_FF));
+        }
+        horizon_client::screen_draw::paint(batch, &self.gui.atlas, &draws);
+    }
+
     pub(super) fn draw_chat_screen(&mut self, batch: &mut HudBatch) {
         let Some(mut screen) = self.ui.chat_screen.take() else {
             return;
@@ -1875,7 +1935,12 @@ impl Game<'_> {
             .map_or(0, |t| t.elapsed().as_millis() as u64);
         let draws = screen.draw(&m, mouse, blink, background);
         horizon_client::screen_draw::paint(batch, &self.gui.atlas, &draws);
+        let typed = (screen.input.value.clone(), screen.input.cursor, screen.input.focused);
         self.ui.chat_screen = Some(screen);
+        // The phone's keyboard covers the chat box at the bottom: show what is typed again above it.
+        if cfg!(target_os = "ios") && self.system_keyboard_up() {
+            self.draw_typing_bar(batch, &typed.0, typed.1);
+        }
         if in_bed {
             let button = Self::leave_bed_draws(&m, mouse, batch.width, batch.height);
             horizon_client::screen_draw::paint(batch, &self.gui.atlas, &button);
