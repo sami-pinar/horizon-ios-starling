@@ -14,10 +14,9 @@ use horizon_client::{
     touch,
 };
 use std::time::{Duration, Instant};
-use winit::{
-    event::{MouseButton, Touch, TouchPhase},
-    keyboard::KeyCode,
-};
+use winit::event::{MouseButton, Touch, TouchPhase};
+#[cfg(target_os = "ios")]
+use winit::keyboard::KeyCode;
 
 /// How far (GUI pixels) a finger travels before a tap becomes a drag.
 const SLOP: f32 = 5.0;
@@ -84,6 +83,8 @@ pub(in crate::game) struct StarlingMenu {
     last_tap: Option<Instant>,
     /// Two-finger travel not yet turned into whole lines of scroll.
     scroll: f32,
+    /// The shift strip is held: a click is a shift-click.
+    pub(super) shift: bool,
 }
 
 fn mode_path() -> Option<std::path::PathBuf> {
@@ -140,12 +141,11 @@ impl Game<'_> {
     }
 
     /// Shift down or up, for a shift-click on the strip.
-    #[cfg(target_os = "ios")]
     fn starling_menu_shift(&mut self, down: bool) {
+        self.touch.starling_menu.shift = down;
+        #[cfg(target_os = "ios")]
         let _ = self.touch_raw_key(KeyCode::ShiftLeft, down);
     }
-    #[cfg(not(target_os = "ios"))]
-    fn starling_menu_shift(&mut self, _down: bool) {}
 
     fn starling_menu_click(&mut self, button: MouseButton) {
         self.starling_menu_edge(button, true);

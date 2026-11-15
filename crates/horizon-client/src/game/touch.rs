@@ -499,6 +499,9 @@ impl Game<'_> {
             }
             let mut modifiers =
                 self.modifiers | gesture_modifiers(horizon_ios_launcher::touch_modifiers());
+            if self.touch.starling_menu.shift {
+                modifiers.insert(winit::keyboard::ModifiersState::SHIFT);
+            }
             if self.touch.fingers.held(Control::Sprint)
                 || self.touch.cursor_keys.contains(&Control::Sprint)
             {
@@ -518,6 +521,7 @@ impl Game<'_> {
                 || {
                     self.touch.fingers.held(Control::Sneak)
                         || self.touch.cursor_keys.contains(&Control::Sneak)
+                        || self.touch.starling_menu.shift
                 },
                 |context| context.touch_shift,
             )
