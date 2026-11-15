@@ -73,7 +73,7 @@ enum Diagnostics {
         let exportDir = folder.appendingPathComponent("Export", isDirectory: true)
         try fm.createDirectory(at: exportDir, withIntermediateDirectories: true)
         let destination = exportDir.appendingPathComponent("Horizon-diagnostics.txt")
-        var output = "Horizon mobile diagnostics\nVersion: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "unknown") Build: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") ?? "unknown")\niOS: \(ProcessInfo.processInfo.operatingSystemVersionString)\nSensitive lines and common identifiers are redacted. Review before sharing.\n"
+        var output = "Erkam mobile diagnostics\nVersion: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") ?? "unknown") Build: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") ?? "unknown")\niOS: \(ProcessInfo.processInfo.operatingSystemVersionString)\nSensitive lines and common identifiers are redacted. Review before sharing.\n"
         let gameHome = gameFolder ?? ProcessInfo.processInfo.environment["HORIZON_HOME"].map {URL(fileURLWithPath:$0)} ?? fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("horizon")
         for (label,url) in [("Launcher previous",folder.appendingPathComponent("launcher-previous.log")),("Launcher current",folder.appendingPathComponent("launcher.log")),("Game previous",gameHome.appendingPathComponent("logs/previous.log")),("Game current",gameHome.appendingPathComponent("logs/latest.log"))] {
             output += "\n--- \(label) ---\n"

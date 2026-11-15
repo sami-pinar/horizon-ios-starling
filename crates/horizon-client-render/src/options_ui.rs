@@ -1311,6 +1311,8 @@ pub(crate) enum Act {
     PvpPreset,
     /// PvP & HUD's Edit HUD button.
     HudEditor,
+    /// Controls' Touch Controls button: the touch controls' editor.
+    TouchEditor,
     /// The installed native mod's settings page.
     ModSettings(usize),
     /// A native mod's key (mod, key) waits for a key; a button of its page.
@@ -1480,6 +1482,8 @@ pub enum Event {
     Credits,
     /// PvP & HUD's Edit HUD: open the HUD editor over the game.
     HudEditor,
+    /// Controls' Touch Controls: open the touch controls' editor.
+    TouchEditor,
     /// Copy how an agent connects (the AI Agent page).
     CopyAgentDetails,
     /// The AI Agent page's recording button: start or stop.
@@ -2652,6 +2656,19 @@ impl OptionsUi {
                     ),
                     None,
                 ));
+                // The touch screens' own controls, which the player moves and resizes.
+                if cfg!(target_os = "ios") {
+                    rows.push(Row::Buttons(
+                        button(
+                            0.0,
+                            0.0,
+                            310.0,
+                            tr("horizon.pages.open.touch_controls"),
+                            Act::TouchEditor,
+                        ),
+                        None,
+                    ));
+                }
                 self.filter_option_rows(rows)
             }
             Page::Mouse => pairs(MOUSE_OPTIONS),
@@ -4042,6 +4059,7 @@ impl OptionsUi {
                             events.push(Event::Changed);
                         }
                         Act::HudEditor => events.push(Event::HudEditor),
+                        Act::TouchEditor => events.push(Event::TouchEditor),
                         Act::AccessibilityHelp => events.push(Event::AccessibilityHelp),
                         Act::Credits => events.push(Event::Credits),
                         Act::CopyAgentDetails => events.push(Event::CopyAgentDetails),
@@ -4924,6 +4942,7 @@ impl OptionsUi {
                             events.push(Event::Changed);
                         }
                         Act::HudEditor => events.push(Event::HudEditor),
+                        Act::TouchEditor => events.push(Event::TouchEditor),
                         Act::AccessibilityHelp => events.push(Event::AccessibilityHelp),
                         Act::Credits => events.push(Event::Credits),
                         Act::CopyAgentDetails => events.push(Event::CopyAgentDetails),

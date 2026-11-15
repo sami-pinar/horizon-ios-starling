@@ -270,6 +270,16 @@ impl Game<'_> {
             touch.location.y as f32 / batch.scale,
         );
         let playing = self.touch_playing();
+        if self.starling_editing() {
+            let size = self
+                .renderer
+                .as_ref()
+                .map(|r| (r.config.width, r.config.height));
+            if let Some(size) = size {
+                self.starling_editor_event(&touch, size);
+            }
+            return Ok(());
+        }
         if !playing && self.starling_on() {
             self.starling_menu_event(event_loop, &touch, at, (batch.width, batch.height));
             return Ok(());
@@ -1091,6 +1101,10 @@ impl Game<'_> {
         #[cfg(target_os = "ios")]
         {
             self.touch.cursor_drawn = Some((self.key_screen(), self.cursor));
+        }
+        if self.starling_editing() {
+            self.draw_starling_editor(batch);
+            return;
         }
         if !touch::controls_visible() || self.hardware_hides_touch() || self.touch_on_phone() {
             return;

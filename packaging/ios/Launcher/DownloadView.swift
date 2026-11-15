@@ -176,7 +176,7 @@ struct DownloadView: View {
             VStack(alignment: .leading, spacing: 22) {
                 Spacer()
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("HORIZON")
+                    Text("ERKAM")
                         .font(Theme.pixel(14, .bold))
                         .foregroundStyle(Theme.accentText)
                         .tracking(2)
@@ -238,7 +238,7 @@ struct DownloadView: View {
         case .downloading: return "Downloading game files"
         case .installing: return "Installing game files"
         case .failed: return "The download stopped"
-        case .done: return "Starting Horizon"
+        case .done: return "Starting Erkam"
         }
     }
 
@@ -263,7 +263,7 @@ struct DownloadView: View {
         if case .failed = model.phase {
             return "Trying again picks up from what already arrived. The other ways send the files from a computer, over Wi-Fi or a cable."
         }
-        return "Keep Horizon open while this runs: the screen stays on, and a dropped connection picks up where it stopped."
+        return "Keep Erkam open while this runs: the screen stays on, and a dropped connection picks up where it stopped."
     }
 
     private var stats: some View {

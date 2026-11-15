@@ -163,7 +163,7 @@ private struct About: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            line("Horizon for iPhone and iPad", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+            line("Erkam for iPhone and iPad", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
             line("Build", Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")
             line("Minecraft: Java Edition", version)
             line("Game files", GameFolder.hasGameFiles ? "Installed" : "Not installed")
@@ -171,7 +171,7 @@ private struct About: View {
                 Label("Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                     .font(Theme.sans(13, .semiBold)).foregroundStyle(Theme.accentText)
             }
-            Text("Your worlds, screenshots and options.txt are in the Files app, under On My iPhone › Horizon.")
+            Text("Your worlds, screenshots and options.txt are in the Files app, under On My iPhone › Erkam.")
                 .font(Theme.sans(11)).foregroundStyle(Theme.textMuted)
             Text("Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.")
                 .font(Theme.sans(11)).foregroundStyle(Theme.textFaint)

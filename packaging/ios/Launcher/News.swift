@@ -87,7 +87,7 @@ struct NewsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            PageTitle(title: "What's New", subtitle: "The latest changes to Horizon on iPhone.")
+            PageTitle(title: "What's New", subtitle: "The latest changes to Erkam on iPhone.")
             if let failed = log.failed {
                 Label(failed, systemImage: "wifi.exclamationmark")
                     .font(Theme.sans(12)).foregroundStyle(Theme.warn)
@@ -121,7 +121,7 @@ struct NewsPage: View {
                     .font(Theme.sans(13, .semiBold)).foregroundStyle(Theme.accentText)
             }
             Link(destination: URL(string: "https://github.com/ludovic111/horizon/releases")!) {
-                Label("Horizon's desktop releases", systemImage: "arrow.up.right.square")
+                Label("Erkam's desktop releases", systemImage: "arrow.up.right.square")
                     .font(Theme.sans(13, .semiBold)).foregroundStyle(Theme.accentText)
             }
         }

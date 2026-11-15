@@ -2,6 +2,18 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-15: Erkam branding, real shift-click, touch controls editor
+* **Shift strip is a shift-click now**: tapping it clicks left at the cursor with Shift down (the click is queued
+  behind the key; Shift comes up two frames after the last queued edge). Holding the finger on it keeps Shift down.
+* **Options > Controls > Touch Controls...** (iOS only) opens Starling's own editor (`TouchControls::open_editor`,
+  `edit_touch`) over the current screen, dimmed: drag buttons, Opacity/Size sliders, add/remove, Grid, Reset,
+  Done/Cancel. Done writes `horizon-touch.json`, loaded again at start (`starling_touch.rs`). The fancier editor of
+  Starling's `touch_ui.rs` (8k lines) is not ported.
+* **Erkam**: the title banner reads ERKAM STYLE (`title_edition.rs`, letters in a 5x7 font drawn with the vanilla
+  texture's shades), the version line reads "Minecraft Erkam Style 26.3", the app and launcher say Erkam
+  (`CFBundleDisplayName`, launcher texts, English strings), and the app icon and launcher mark are the Erkam logo.
+  Bundle ids, the executable name and file names keep their old spelling so installs and saves stay.
+
 ## 2026-11-15: Clean cursor
 * The cursor's black outline is gone; it is a plain white plus. Its middle pixel is now centred on the pointer
   (it used to sit half a pixel off, with the pointer on the pixel's corner). The mode button's icons lost their

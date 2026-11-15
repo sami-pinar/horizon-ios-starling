@@ -3,8 +3,8 @@
 //! in place of the Pojav-style overlay of `touch.rs`, which keeps the menus. Fingers on a world screen belong
 //! to this module; the pad pipeline (`pad.rs`) does what a controller's buttons do.
 use super::Game;
-use horizon_client::hud::HudBatch;
-use horizon_client_render::touch::{Control, TouchControls, camera_delta, hotbar_slot};
+use horizon_client::hud::{HudBatch, rgba};
+use horizon_client_render::touch::{Control, Settings, TouchControls, camera_delta, hotbar_slot};
 use winit::{
     event::{Touch, TouchPhase},
     keyboard::KeyCode,
@@ -25,18 +25,23 @@ pub(super) struct StarlingTouch {
 impl Default for StarlingTouch {
     fn default() -> Self {
         let mut controls = TouchControls::default();
-        // The settings button at the top did nothing here (there is no in-game touch settings screen yet).
-        controls.settings.button_visibility[Control::Settings as usize] = 2; // 0 follows the scheme, 1 shows, 2 hides
-        // Debug, chat, pause and camera sit together in the middle of the top row, with no hole where the
-        // settings button was.
-        for row in controls.settings.layouts.iter_mut() {
-            for (control, x) in [
-                (Control::Debug, 0.44),
-                (Control::Chat, 0.48),
-                (Control::Pause, 0.52),
-                (Control::Perspective, 0.56),
-            ] {
-                row[control as usize].center[0] = x;
+        if std::path::Path::new("horizon-touch.json").exists() {
+            // What the player moved and resized in Options > Controls > Touch Controls.
+            controls.settings = Settings::load();
+        } else {
+            // The settings button at the top did nothing here (the editor is in Options instead).
+            controls.settings.button_visibility[Control::Settings as usize] = 2; // 0 follows the scheme, 1 shows, 2 hides
+            // Debug, chat, pause and camera sit together in the middle of the top row, with no hole where the
+            // settings button was.
+            for row in controls.settings.layouts.iter_mut() {
+                for (control, x) in [
+                    (Control::Debug, 0.44),
+                    (Control::Chat, 0.48),
+                    (Control::Pause, 0.52),
+                    (Control::Perspective, 0.56),
+                ] {
+                    row[control as usize].center[0] = x;
+                }
             }
         }
         Self {
@@ -122,6 +127,50 @@ impl Game<'_> {
                 let _ = self.touch_press_key(key);
             }
         }
+    }
+
+    /// The editor of the touch controls is open (Options > Controls > Touch Controls): it owns every finger and
+    /// draws over the screen it was opened from.
+    pub(super) fn starling_editing(&self) -> bool {
+        self.starling_on() && self.touch.starling.controls.editor.is_some()
+    }
+
+    pub(super) fn starling_open_editor(&mut self) {
+        if !self.starling_on() {
+            return;
+        }
+        if let Some(size) = self.renderer.as_ref().map(|r| (r.config.width, r.config.height)) {
+            self.touch.starling.controls.viewport(size.0.max(1), size.1.max(1));
+        }
+        self.touch.starling.controls.open_editor();
+    }
+
+    /// A finger while editing. `size` is the surface in pixels.
+    pub(super) fn starling_editor_event(&mut self, touch: &Touch, size: (u32, u32)) {
+        let (width, height) = (size.0.max(1), size.1.max(1));
+        let point = [
+            (touch.location.x as f32 / width as f32).clamp(0.0, 1.0),
+            (touch.location.y as f32 / height as f32).clamp(0.0, 1.0),
+        ];
+        let started = touch.phase == TouchPhase::Started;
+        let ended = matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled);
+        let controls = &mut self.touch.starling.controls;
+        controls.viewport(width, height);
+        if controls.edit_touch(touch.id, point, started, ended) {
+            // Done or Cancel closed it.
+            controls.editor = None;
+            controls.clear();
+        }
+    }
+
+    /// The editor: the screen dimmed, and the controls as they sit, to move, resize, add and remove.
+    pub(super) fn draw_starling_editor(&mut self, batch: &mut HudBatch) {
+        if let Some(size) = self.renderer.as_ref().map(|r| (r.config.width, r.config.height)) {
+            self.touch.starling.controls.viewport(size.0.max(1), size.1.max(1));
+        }
+        let (w, h) = (batch.width, batch.height);
+        batch.fill(&self.gui.atlas, 0.0, 0.0, w, h, rgba(0, 0, 0, 175));
+        self.touch.starling.controls.draw(batch, &self.gui.atlas);
     }
 
     /// Not in the world (a menu, loading): let go of everything the fingers held.

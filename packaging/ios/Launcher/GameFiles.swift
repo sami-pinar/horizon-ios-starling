@@ -283,7 +283,7 @@ final class GameFilesDownload: NSObject, ObservableObject {
         switch answer["kind"] as? String {
         case "resources":
             return GameFolder.hasGameFiles
-                ? "Game files installed. If the game was already running, close Horizon and open it again to use them."
+                ? "Game files installed. If the game was already running, close Erkam and open it again to use them."
                 : "Game files installed."
         case "world": return "World \(name) added."
         case "resource_pack": return "Resource pack \(name) added."
@@ -441,7 +441,7 @@ struct GameFilesCard: View {
                     .font(Theme.pixel(18)).foregroundStyle(Theme.text)
             }
             if missing {
-                Text("Horizon downloads and installs the game files automatically. Keep this screen open until setup finishes.")
+                Text("Erkam downloads and installs the game files automatically. Keep this screen open until setup finishes.")
                     .font(Theme.sans(12)).foregroundStyle(Theme.textMuted)
             }
             progress
@@ -463,7 +463,7 @@ struct GameFilesCard: View {
             }
             DisclosureGroup(missing ? "Use a download link instead" : "Download from a link") {
                 Text("""
-                Horizon plays with the files your own Minecraft: Java Edition makes. Prepare them on a computer \
+                Erkam plays with the files your own Minecraft: Java Edition makes. Prepare them on a computer \
                 (horizon-prepare, then pack them as a zip), put the zip somewhere this phone can reach, such as your \
                 computer on this Wi-Fi or a server of your own, and paste its link. Worlds and resource packs \
                 (.zip) work too.
@@ -479,7 +479,7 @@ struct GameFilesCard: View {
                 PrimaryButton(title: "Download from link", icon: "arrow.down", action: download.start)
                     .disabled(download.busy || download.link.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Text("You can also send the zip from the game's own screen over Wi-Fi, or drop it into Horizon's folder in the Files app.")
+            Text("You can also send the zip from the game's own screen over Wi-Fi, or drop it into Erkam's folder in the Files app.")
                 .font(Theme.sans(11)).foregroundStyle(Theme.textFaint)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -546,18 +546,18 @@ struct GameFilesRecovery: View {
                     } else if download.busy {
                         Text("Game files are being set up. You can play when installation finishes.")
                     } else {
-                        Text("Horizon needs Minecraft game files before you can play, open a world or join a server.")
+                        Text("Erkam needs Minecraft game files before you can play, open a world or join a server.")
                     }
                     Text("You can retry automatic setup below, or prepare and transfer the files from a computer.")
                 }
                 Section("Download from Mojang with Microsoft") {
                     Text(signedIn
-                         ? "Your Microsoft account is signed in here. To prepare game files, also sign in to the Horizon desktop launcher with an account that owns Minecraft: Java Edition."
-                         : "On a computer, sign in to the Horizon desktop launcher with a Microsoft account that owns Minecraft: Java Edition.")
-                    Text("Choose Download and prepare for Minecraft \(version). The desktop launcher downloads from Mojang and prepares the files for Horizon.")
+                         ? "Your Microsoft account is signed in here. To prepare game files, also sign in to the Erkam desktop launcher with an account that owns Minecraft: Java Edition."
+                         : "On a computer, sign in to the Erkam desktop launcher with a Microsoft account that owns Minecraft: Java Edition.")
+                    Text("Choose Download and prepare for Minecraft \(version). The desktop launcher downloads from Mojang and prepares the files for Erkam.")
                     Text("Signing in on this iPad alone does not download or prepare these files yet. Transfer the prepared files using the steps below.")
                         .foregroundStyle(.secondary)
-                    Link("Get the Horizon desktop launcher", destination: URL(string: "https://github.com/horizon-rust/horizon/releases")!)
+                    Link("Get the Erkam desktop launcher", destination: URL(string: "https://github.com/horizon-rust/horizon/releases")!)
                 }
                 Section("Prepare or transfer your own files") {
                     if let configureManually {
@@ -569,7 +569,7 @@ struct GameFilesRecovery: View {
                     Text("horizon-client --pack-resources <prepared-folder> --out Horizon-\(version).zip")
                         .font(.footnote.monospaced()).textSelection(.enabled)
                     Text("Replace <prepared-folder> with the folder created by preparation. A Minecraft JAR, world ZIP or resource pack alone cannot replace these files.")
-                    Text("Copy the prepared ZIP into Horizon’s Documents folder using Finder or Apple Devices file sharing. You can also put it at a link this iPad can reach and use Download from link below.")
+                    Text("Copy the prepared ZIP into Erkam’s Documents folder using Finder or Apple Devices file sharing. You can also put it at a link this iPad can reach and use Download from link below.")
                     Button("Choose prepared ZIP") { choosingFile = true }
                         .disabled(download.busy)
                         .accessibilityIdentifier("launcher-import-prepared-files")

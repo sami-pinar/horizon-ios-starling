@@ -37,10 +37,10 @@ struct HomeView: View {
                 NavigationSplitView {
                     VStack(alignment: .leading, spacing: 28) {
                         HStack(spacing: 12) {
-                            Kit.image("horizon-mark").resizable().renderingMode(.template).scaledToFit().frame(width: 32, height: 32)
+                            Kit.image("erkam-mark").resizable().scaledToFit().frame(width: 32, height: 32).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("Horizon").font(.system(.title3, design: .rounded).bold())
-                                Text("JAVA EDITION").font(.caption2.weight(.medium)).tracking(1.5).foregroundStyle(.secondary)
+                                Text("Erkam").font(.system(.title3, design: .rounded).bold())
+                                Text("ERKAM STYLE").font(.caption2.weight(.medium)).tracking(1.5).foregroundStyle(.secondary)
                             }
                         }.padding(.horizontal, 12)
                         VStack(spacing: 8) {
@@ -115,7 +115,7 @@ struct HomeView: View {
     private func pageHeading(_ item: Destination) -> some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("HORIZON\(item == .play ? " / JAVA EDITION" : "")")
+                Text("ERKAM STYLE")
                     .font(.caption2.weight(.semibold)).tracking(2).foregroundStyle(Theme.accent)
                 Text(item.title).font(.system(.largeTitle, design: .rounded).bold())
                 if item == .settings {
@@ -193,15 +193,15 @@ struct HomeView: View {
     private var launchPanel: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 8) {
-                Text("JAVA EDITION · \(link.version)").font(.caption.weight(.semibold)).tracking(1.4)
+                Text("ERKAM STYLE · \(link.version)").font(.caption.weight(.semibold)).tracking(1.4)
             }
             .foregroundStyle(.white.opacity(0.9))
             Spacer(minLength: 22)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 14) {
-                    Kit.image("horizon-mark").resizable().renderingMode(.template)
-                        .scaledToFit().frame(width: 54, height: 54).accessibilityHidden(true)
-                    Text("Horizon").font(.system(.largeTitle, design: .rounded).bold())
+                    Kit.image("erkam-mark").resizable()
+                        .scaledToFit().frame(width: 54, height: 54).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous)).accessibilityHidden(true)
+                    Text("Erkam").font(.system(.largeTitle, design: .rounded).bold())
                 }
                 .foregroundStyle(.white)
                 .padding(.top, 8)

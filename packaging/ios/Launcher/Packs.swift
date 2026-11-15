@@ -349,7 +349,7 @@ struct PacksPage: View {
                 }
             }
             .card()
-            Text("Packs come from modrinth.com and their authors. Horizon is not affiliated with Modrinth.")
+            Text("Packs come from modrinth.com and their authors. Erkam is not affiliated with Modrinth.")
                 .font(Theme.sans(11)).foregroundStyle(Theme.textFaint)
         }
         .task(id: kind) {
@@ -371,7 +371,7 @@ struct PacksPage: View {
         SectionHeader(title: "Installed")
         if names.isEmpty {
             EmptyNote(icon: kind == .resource ? "square.stack.3d.up" : "sun.max",
-                      text: "None yet. Find one below, or drop a .zip into Horizon's \(kind == .resource ? "resourcepacks" : "shaderpacks") folder in Files.")
+                      text: "None yet. Find one below, or drop a .zip into Erkam's \(kind == .resource ? "resourcepacks" : "shaderpacks") folder in Files.")
         } else {
             VStack(spacing: 0) {
                 ForEach(names, id: \.self) { name in

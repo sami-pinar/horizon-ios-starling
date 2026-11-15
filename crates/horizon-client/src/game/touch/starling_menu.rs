@@ -41,7 +41,7 @@ enum Role {
     Direct,
     /// A mouse button zone; `true` for the right button.
     Zone(bool),
-    /// The long thin strip beside them: holds Shift, so a click is a shift-click.
+    /// The long thin strip beside them: a tap is a shift-click, and Shift stays down while the finger does.
     Shift,
     /// Moves the cursor.
     Pad,
@@ -83,8 +83,10 @@ pub(in crate::game) struct StarlingMenu {
     last_tap: Option<Instant>,
     /// Two-finger travel not yet turned into whole lines of scroll.
     scroll: f32,
-    /// The shift strip is held: a click is a shift-click.
+    /// Shift is down for a shift-click: pressed by the strip, let go once its click has gone out.
     pub(super) shift: bool,
+    /// The frame from which Shift comes up, once the finger on the strip has lifted.
+    shift_off: Option<u64>,
     /// The eye button hid the click zones.
     zones_hidden: bool,
 }
@@ -231,7 +233,10 @@ impl Game<'_> {
             self.touch_menu(event_loop, id, TouchPhase::Started, at);
         } else if touch::hit_rect(shift_rect(w, h), at) {
             finger.role = Role::Shift;
+            self.touch.starling_menu.shift_off = None;
             self.starling_menu_shift(true);
+            // The strip clicks at once: Shift is down before the press goes out.
+            self.starling_menu_click(MouseButton::Left);
         } else if at.0 < zones_width(w) {
             let right = at.1 >= h / 2.0;
             finger.role = Role::Zone(right);
@@ -396,7 +401,13 @@ impl Game<'_> {
                     self.touch.starling_menu.last_tap = None;
                 }
             }
-            Role::Shift => self.starling_menu_shift(false),
+            Role::Shift => {
+                // Shift stays until the queued click has gone out.
+                let frames = self.frames;
+                let menu = &mut self.touch.starling_menu;
+                let last = menu.edges.last().map_or(frames, |edge| edge.due.max(frames));
+                menu.shift_off = Some(last + 2);
+            }
             Role::Scroll | Role::Toggle => {}
         }
     }
@@ -440,7 +451,8 @@ impl Game<'_> {
         if fingers.iter().any(|f| f.role == Role::Direct) {
             self.touch_release_menu(event_loop);
         }
-        if fingers.iter().any(|f| f.role == Role::Shift) {
+        if fingers.iter().any(|f| f.role == Role::Shift) || self.touch.starling_menu.shift {
+            self.touch.starling_menu.shift_off = None;
             self.starling_menu_shift(false);
         }
         let menu = &mut self.touch.starling_menu;
@@ -469,6 +481,12 @@ impl Game<'_> {
         });
         for (button, down) in due {
             self.touch_mouse_button(event_loop, button, down);
+        }
+        if let Some(off) = self.touch.starling_menu.shift_off
+            && off <= frames
+        {
+            self.touch.starling_menu.shift_off = None;
+            self.starling_menu_shift(false);
         }
         // Long presses and held second touches.
         let mut right_click = false;
