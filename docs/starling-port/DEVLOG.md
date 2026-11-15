@@ -2,6 +2,11 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-15: Clean cursor
+* The cursor's black outline is gone; it is a plain white plus. Its middle pixel is now centred on the pointer
+  (it used to sit half a pixel off, with the pointer on the pixel's corner). The mode button's icons lost their
+  shadow too.
+
 ## 2026-11-15: Chat typing bar, wider zones, eye toggle, new icons
 * **Chat**: the phone's keyboard covers the chat box, so typed text is now shown again in a bar near the top, with a
   blinking caret and a placeholder (`chat.rs: draw_typing_bar`).

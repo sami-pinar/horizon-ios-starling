@@ -628,17 +628,14 @@ fn pixels(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32, rows: &[&str]) {
     }
 }
 
-/// A Minecraft crosshair, centred on `at`: a white plus with a dark edge, so it reads on any background.
+/// The cursor: a clean white plus, one pixel thick, whose middle pixel is centred on the pointer.
 fn crosshair(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32) {
     let arm = 5.0;
-    let (cx, cy) = (at[0].round(), at[1].round());
-    let dark = rgba(16, 16, 20, 230);
+    // The middle pixel spans [c, c + u): its middle is the pointer, not its top-left corner.
+    let (cx, cy) = ((at[0] - 0.5 * u).round(), (at[1] - 0.5 * u).round());
     let white = rgba(255, 255, 255, 255);
-    // Dark edge first, one pixel wider all round, then the white bars.
-    b.fill(a, cx - (arm + 1.0) * u, cy - 1.5 * u, (arm * 2.0 + 3.0) * u, 3.0 * u, dark);
-    b.fill(a, cx - 1.5 * u, cy - (arm + 1.0) * u, 3.0 * u, (arm * 2.0 + 3.0) * u, dark);
-    b.fill(a, cx - arm * u, cy - 0.5 * u, (arm * 2.0 + 1.0) * u, u, white);
-    b.fill(a, cx - 0.5 * u, cy - arm * u, u, (arm * 2.0 + 1.0) * u, white);
+    b.fill(a, cx - arm * u, cy, (arm * 2.0 + 1.0) * u, u, white);
+    b.fill(a, cx, cy - arm * u, u, (arm * 2.0 + 1.0) * u, white);
 }
 
 /// Shift plus a click: the shift arrow over a plus over a mouse with its left button lit. Gold while held.
@@ -690,24 +687,13 @@ fn plate_centre(a: &HudAtlas, r: touch::Rect) -> [f32; 2] {
     ]
 }
 
-/// A pixel picture of 1-GUI-pixel cells whose middle cell sits on `centre`, with a soft shadow under it.
+/// A pixel picture of 1-GUI-pixel cells whose middle cell sits on `centre`.
 fn glyph(b: &mut HudBatch, a: &HudAtlas, centre: [f32; 2], size: i32, cell: impl Fn(i32, i32) -> Option<u32>) {
     let half = size / 2;
-    for pass in 0..2 {
-        for j in 0..size {
-            for i in 0..size {
-                let Some(color) = cell(i - half, j - half) else {
-                    continue;
-                };
-                let (color, shift) = if pass == 0 { (rgba(0, 0, 0, 120), 1.0) } else { (color, 0.0) };
-                b.fill(
-                    a,
-                    centre[0] + (i - half) as f32 + shift,
-                    centre[1] + (j - half) as f32 + shift,
-                    1.0,
-                    1.0,
-                    color,
-                );
+    for j in 0..size {
+        for i in 0..size {
+            if let Some(color) = cell(i - half, j - half) {
+                b.fill(a, centre[0] + (i - half) as f32, centre[1] + (j - half) as f32, 1.0, 1.0, color);
             }
         }
     }
