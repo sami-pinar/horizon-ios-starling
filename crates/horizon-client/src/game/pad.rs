@@ -475,7 +475,10 @@ impl Game<'_> {
         }
         let threshold = self.settings.controller.trigger_threshold;
         let edges = self.pad.edges.update(&state, threshold);
-        if activity && self.pad_focused() {
+        // The touch controls feed this pad too (`starling_touch.rs`): fingers are not a controller, so
+        // they bring no glyphs or button guide.
+        let touch_only = self.touch.starling.fed && hardware == PadState::default();
+        if activity && self.pad_focused() && !touch_only {
             self.last_input = Instant::now();
             self.pad.in_use = true;
             self.pad.keyboard_took_over = false;

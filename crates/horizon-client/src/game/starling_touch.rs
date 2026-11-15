@@ -20,7 +20,7 @@ pub(super) struct StarlingTouch {
     /// Fingers that landed on the hotbar: they pick a slot and are nothing else.
     hotbar: Vec<u64>,
     /// The controls were fed to the pad last frame (so a frame without them lets go once).
-    fed: bool,
+    pub(super) fed: bool,
 }
 
 impl Game<'_> {
