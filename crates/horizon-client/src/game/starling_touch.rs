@@ -4,7 +4,7 @@
 //! to this module; the pad pipeline (`pad.rs`) does what a controller's buttons do.
 use super::Game;
 use horizon_client::hud::HudBatch;
-use horizon_client_render::touch::{Control, TouchControls, camera_delta, hotbar_slot, layout};
+use horizon_client_render::touch::{Control, TouchControls, camera_delta, hotbar_slot};
 use winit::{
     event::{Touch, TouchPhase},
     keyboard::KeyCode,
@@ -26,7 +26,7 @@ impl Default for StarlingTouch {
     fn default() -> Self {
         let mut controls = TouchControls::default();
         // The settings button at the top did nothing here (there is no in-game touch settings screen yet).
-        controls.settings.button_visibility[Control::Settings as usize] = layout::HIDDEN;
+        controls.settings.button_visibility[Control::Settings as usize] = 2; // 0 follows the scheme, 1 shows, 2 hides
         Self {
             controls,
             hotbar: Vec::new(),

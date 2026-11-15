@@ -29,6 +29,6 @@ Newest first. One entry per change: what, why, how it was checked.
 * Found why the first attempt showed nothing: the game draws its buttons with a different function than the one
   that was edited.
 
-## 2026-11-14: First attempt (superseded)
+## 2026-11-15 (earlier): First attempt (superseded)
 * Installed Horizon's iOS port on an iPhone 12 with a free Apple ID, loaded game files, and tried copying
   Starling's controls as sprites inside the old overlay (`starling-look`).
