@@ -415,6 +415,7 @@ impl Game<'_> {
     /// The mode button, the mouse button zones and the cursor, in the style of the touch controls.
     pub(super) fn draw_starling_menu(&mut self, batch: &mut HudBatch) {
         let (w, h) = (batch.width, batch.height);
+        let keyboard = self.touch_shown() && self.field_focused();
         let atlas = &self.gui.atlas;
         let cursor_mode = self.touch.starling_menu.cursor_mode;
         if cursor_mode {
@@ -456,7 +457,7 @@ impl Game<'_> {
             plate(batch, atlas, r, held, 190);
             cross(batch, atlas, r);
         }
-        if self.touch_shown() && self.field_focused() {
+        if keyboard {
             let held = self
                 .touch
                 .menu
