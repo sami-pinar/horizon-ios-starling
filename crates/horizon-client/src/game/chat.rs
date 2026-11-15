@@ -1898,7 +1898,7 @@ impl Game<'_> {
         if blink {
             draws.push(fill(caret_x, y + 3, caret_x + 1, y + height - 3, 0xFF_FF_FF_FF));
         }
-        horizon_client::screen_draw::paint(batch, &self.gui.atlas, &draws);
+        horizon_client::hud_layout::paint(batch, &self.gui.atlas, &draws);
     }
 
     pub(super) fn draw_chat_screen(&mut self, batch: &mut HudBatch) {
