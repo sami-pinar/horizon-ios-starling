@@ -36,7 +36,7 @@ impl TouchControls {
                     .fingers
                     .values()
                     .any(|(_, point)| layout::contains(rect, *point));
-            button(b, a, bounds, &self.label(control), pressed, color);
+            control_button(b, a, bounds, control, &self.label(control), pressed, color);
         }
         if let Some(point) = self.pointer() {
             let center = [point[0] * b.width, point[1] * b.height];
@@ -114,8 +114,26 @@ impl TouchControls {
             let cell = size / 3.0;
             for ([dx, dy], label, pressed) in dpad(state.left) {
                 let bounds = [x + cell * dx, y + cell * dy, cell, cell];
-                button(b, a, bounds, label, pressed, color);
+                let name = match label {
+                    "^" => "dpad_up",
+                    "<" => "dpad_left",
+                    ">" => "dpad_right",
+                    _ => "dpad_down",
+                };
+                if !pressable_sprite(b, a, name, bounds, pressed, color) {
+                    button(b, a, bounds, label, pressed, color);
+                }
             }
+            touch_sprite(b, a, "dpad_middle", [x + cell, y + cell, cell, cell], color);
+            return;
+        }
+        if has_touch_sprite(a, "stick") && has_touch_sprite(a, "stick_knob") {
+            let middle = [x + size / 2.0, y + size / 2.0];
+            touch_sprite(b, a, "stick", [x, y, size, size], color);
+            let knob = knob(middle, state.left, size);
+            let side = size * 0.42;
+            let bounds = [knob[0] - side / 2.0, knob[1] - side / 2.0, side, side];
+            touch_sprite(b, a, "stick_knob", bounds, color);
             return;
         }
         let middle = [x + size / 2.0, y + size / 2.0];
@@ -156,6 +174,91 @@ fn square(b: &HudBatch, center: [f32; 2], size: f32) -> [f32; 4] {
         size,
         size,
     ]
+}
+
+/// Starling's sprite for a control, when it has one (sprint and shield keep the labelled button).
+fn sprite_name(control: Control) -> Option<&'static str> {
+    Some(match control {
+        Control::Jump => "jump",
+        Control::Sneak => "sneak",
+        Control::Attack => "attack",
+        Control::Use => "use",
+        Control::Chat => "chat",
+        Control::Pause => "pause",
+        Control::Settings => "command",
+        Control::Inventory => "inventory",
+        Control::Debug => "debug",
+        Control::Perspective => "camera",
+        Control::Offhand => "offhand",
+        Control::Move | Control::Sprint | Control::Shield => return None,
+    })
+}
+
+fn has_touch_sprite(a: &HudAtlas, name: &str) -> bool {
+    a.sprites.contains_key(&crate::hud::touch_sprite_key(name))
+}
+
+/// A Starling touch sprite fitted inside `bounds` and centred, keeping its proportions.
+/// False when the atlas has no such sprite.
+fn touch_sprite(b: &mut HudBatch, a: &HudAtlas, name: &str, bounds: [f32; 4], color: u32) -> bool {
+    let Some(rect) = a.sprites.get(&crate::hud::touch_sprite_key(name)).copied() else {
+        return false;
+    };
+    let [x, y, w, h] = bounds;
+    let scale = (w / rect.w as f32).min(h / rect.h as f32);
+    let (width, height) = (rect.w as f32 * scale, rect.h as f32 * scale);
+    b.rect_uv(
+        x + (w - width) / 2.0,
+        y + (h - height) / 2.0,
+        width,
+        height,
+        rect,
+        color,
+    );
+    true
+}
+
+/// A sprite and its `_pressed` twin: the twin while held, else the sprite itself, darker.
+fn pressable_sprite(
+    b: &mut HudBatch,
+    a: &HudAtlas,
+    name: &str,
+    bounds: [f32; 4],
+    pressed: bool,
+    color: u32,
+) -> bool {
+    if !pressed {
+        return touch_sprite(b, a, name, bounds, color);
+    }
+    if touch_sprite(b, a, &format!("{name}_pressed"), bounds, color) {
+        return true;
+    }
+    let [r, g, blue, opacity] = color.to_le_bytes();
+    touch_sprite(
+        b,
+        a,
+        name,
+        bounds,
+        rgba(r / 10 * 7, g / 10 * 7, blue / 10 * 7, opacity),
+    )
+}
+
+/// A control's button: its Starling sprite, or the labelled button where it has none.
+fn control_button(
+    b: &mut HudBatch,
+    a: &HudAtlas,
+    bounds: [f32; 4],
+    control: Control,
+    label: &str,
+    pressed: bool,
+    color: u32,
+) {
+    if let Some(name) = sprite_name(control)
+        && pressable_sprite(b, a, name, bounds, pressed, color)
+    {
+        return;
+    }
+    button(b, a, bounds, label, pressed, color);
 }
 
 fn alpha(opacity: f32) -> u8 {

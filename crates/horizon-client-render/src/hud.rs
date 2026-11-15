@@ -423,6 +423,194 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 /// A packed atlas image: sprite name, size and RGBA pixels.
 type PackedImage = (String, u32, u32, Vec<u8>);
+
+// Starling's own touch artwork (https://github.com/starling-client/starling, MIT, drawn by
+// packaging/touch/make.py): each button's sprite and its `_pressed`, the D-pad's cells and the stick's.
+const TOUCH_SPRITES: &[(&str, &[u8])] = &[
+    (
+        "attack",
+        include_bytes!("../../horizon-client/assets/touch/attack.png"),
+    ),
+    (
+        "attack_pressed",
+        include_bytes!("../../horizon-client/assets/touch/attack_pressed.png"),
+    ),
+    (
+        "camera",
+        include_bytes!("../../horizon-client/assets/touch/camera.png"),
+    ),
+    (
+        "camera_pressed",
+        include_bytes!("../../horizon-client/assets/touch/camera_pressed.png"),
+    ),
+    (
+        "chat",
+        include_bytes!("../../horizon-client/assets/touch/chat.png"),
+    ),
+    (
+        "chat_pressed",
+        include_bytes!("../../horizon-client/assets/touch/chat_pressed.png"),
+    ),
+    (
+        "command",
+        include_bytes!("../../horizon-client/assets/touch/command.png"),
+    ),
+    (
+        "command_pressed",
+        include_bytes!("../../horizon-client/assets/touch/command_pressed.png"),
+    ),
+    (
+        "debug",
+        include_bytes!("../../horizon-client/assets/touch/debug.png"),
+    ),
+    (
+        "debug_pressed",
+        include_bytes!("../../horizon-client/assets/touch/debug_pressed.png"),
+    ),
+    (
+        "dpad_down",
+        include_bytes!("../../horizon-client/assets/touch/dpad_down.png"),
+    ),
+    (
+        "dpad_down_pressed",
+        include_bytes!("../../horizon-client/assets/touch/dpad_down_pressed.png"),
+    ),
+    (
+        "dpad_left",
+        include_bytes!("../../horizon-client/assets/touch/dpad_left.png"),
+    ),
+    (
+        "dpad_left_pressed",
+        include_bytes!("../../horizon-client/assets/touch/dpad_left_pressed.png"),
+    ),
+    (
+        "dpad_middle",
+        include_bytes!("../../horizon-client/assets/touch/dpad_middle.png"),
+    ),
+    (
+        "dpad_right",
+        include_bytes!("../../horizon-client/assets/touch/dpad_right.png"),
+    ),
+    (
+        "dpad_right_pressed",
+        include_bytes!("../../horizon-client/assets/touch/dpad_right_pressed.png"),
+    ),
+    (
+        "dpad_up",
+        include_bytes!("../../horizon-client/assets/touch/dpad_up.png"),
+    ),
+    (
+        "dpad_up_pressed",
+        include_bytes!("../../horizon-client/assets/touch/dpad_up_pressed.png"),
+    ),
+    (
+        "drop",
+        include_bytes!("../../horizon-client/assets/touch/drop.png"),
+    ),
+    (
+        "drop_pressed",
+        include_bytes!("../../horizon-client/assets/touch/drop_pressed.png"),
+    ),
+    (
+        "inventory",
+        include_bytes!("../../horizon-client/assets/touch/inventory.png"),
+    ),
+    (
+        "inventory_pressed",
+        include_bytes!("../../horizon-client/assets/touch/inventory_pressed.png"),
+    ),
+    (
+        "jump",
+        include_bytes!("../../horizon-client/assets/touch/jump.png"),
+    ),
+    (
+        "jump_pressed",
+        include_bytes!("../../horizon-client/assets/touch/jump_pressed.png"),
+    ),
+    (
+        "offhand",
+        include_bytes!("../../horizon-client/assets/touch/offhand.png"),
+    ),
+    (
+        "offhand_pressed",
+        include_bytes!("../../horizon-client/assets/touch/offhand_pressed.png"),
+    ),
+    (
+        "pause",
+        include_bytes!("../../horizon-client/assets/touch/pause.png"),
+    ),
+    (
+        "pause_pressed",
+        include_bytes!("../../horizon-client/assets/touch/pause_pressed.png"),
+    ),
+    (
+        "pick",
+        include_bytes!("../../horizon-client/assets/touch/pick.png"),
+    ),
+    (
+        "pick_pressed",
+        include_bytes!("../../horizon-client/assets/touch/pick_pressed.png"),
+    ),
+    (
+        "players",
+        include_bytes!("../../horizon-client/assets/touch/players.png"),
+    ),
+    (
+        "players_pressed",
+        include_bytes!("../../horizon-client/assets/touch/players_pressed.png"),
+    ),
+    (
+        "sneak",
+        include_bytes!("../../horizon-client/assets/touch/sneak.png"),
+    ),
+    (
+        "sneak_pressed",
+        include_bytes!("../../horizon-client/assets/touch/sneak_pressed.png"),
+    ),
+    (
+        "stick",
+        include_bytes!("../../horizon-client/assets/touch/stick.png"),
+    ),
+    (
+        "stick_knob",
+        include_bytes!("../../horizon-client/assets/touch/stick_knob.png"),
+    ),
+    (
+        "use",
+        include_bytes!("../../horizon-client/assets/touch/use.png"),
+    ),
+    (
+        "use_pressed",
+        include_bytes!("../../horizon-client/assets/touch/use_pressed.png"),
+    ),
+];
+
+/// The atlas key of a built-in touch sprite.
+pub fn touch_sprite_key(name: &str) -> String {
+    format!("starling:gui/sprites/touch/{name}")
+}
+
+/// [`TOUCH_SPRITES`] a pack has not drawn already (a pack's own `starling:touch/jump` wins).
+fn builtin_touch_sprites(images: &[PackedImage]) -> Vec<PackedImage> {
+    TOUCH_SPRITES
+        .iter()
+        .filter_map(|(name, png)| {
+            let key = touch_sprite_key(name);
+            if images.iter().any(|(k, ..)| *k == key) {
+                return None;
+            }
+            let (w, h, mut pixels) = decode_bytes(png).ok()?;
+            if matches!(*name, "pause" | "inventory") {
+                for pixel in pixels.as_chunks_mut::<4>().0 {
+                    if pixel[0] >= 245 && pixel[1] >= 245 && pixel[2] >= 245 {
+                        pixel[..3].copy_from_slice(&[32, 32, 32]);
+                    }
+                }
+            }
+            Some((key, w, h, pixels))
+        })
+        .collect()
+}
 /// A frame of an animated strip at `x, y`, nearest-resampled to the longer
 /// side of the frame: array layers are square, as `Sprites::load` keeps them
 /// for the world's sprite arrays.
@@ -1452,6 +1640,9 @@ impl HudAtlas {
                 images.push(image);
             }
         }
+        // The menus' atlas too: the touch layout editor works before a world.
+        let touch = builtin_touch_sprites(&images);
+        images.extend(touch);
         // The title screen's "JAVA EDITION" banner reads "RUST EDITION".
         if let Some(edition) = images
             .iter_mut()
