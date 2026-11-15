@@ -1846,8 +1846,11 @@ impl Game<'_> {
     fn draw_typing_bar(&self, batch: &mut HudBatch, text: &str, cursor: usize) {
         use horizon_client::hud_layout::{GuiDraw, fill};
         let font = &self.gui.atlas.font;
-        let width = (batch.width as i32 * 7 / 10).max(200);
-        let x = (batch.width as i32 - width) / 2;
+        // Right of the click zones (cursor mode) and clear of the top-right buttons.
+        let left = self.starling_zones_reach(batch.width) as i32 + 8;
+        let right = batch.width as i32 - 8;
+        let width = ((right - left) * 9 / 10).clamp(160, batch.width as i32 * 7 / 10);
+        let x = left + ((right - left) - width) / 2;
         let height = 18;
         let y = (batch.height as i32 * 20 / 100).max(14);
         let chars: Vec<char> = text.chars().collect();

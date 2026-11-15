@@ -412,6 +412,16 @@ impl Game<'_> {
         save_state(menu.cursor_mode, menu.zones_hidden);
     }
 
+    /// How far in from the left edge the click zones reach while they are drawn (0 in tap mode or hidden): what
+    /// else is drawn over a screen, such as the chat typing bar, keeps right of it.
+    pub(in crate::game) fn starling_zones_reach(&self, width: f32) -> f32 {
+        if self.starling_on() && self.touch.starling_menu.cursor_mode && !self.starling_menu_zones_hidden() {
+            zones_width(width)
+        } else {
+            0.0
+        }
+    }
+
     /// Show or hide the click zones (they keep working hidden).
     fn starling_menu_eye(&mut self) {
         let menu = &mut self.touch.starling_menu;
@@ -646,22 +656,24 @@ fn shift_icon(b: &mut HudBatch, a: &HudAtlas, r: touch::Rect, held: bool) {
         "...###...",
     ];
     const PLUS: [&str; 5] = ["..#..", "..#..", "#####", "..#..", "..#.."];
-    let u = (r[2] * 0.62 / 9.0).max(1.0);
+    // Whole GUI pixels, so the cells stay crisp, and small enough for the strip however wide it is.
+    let u = (r[2] * 0.36 / 9.0).floor().max(2.0);
     let rows: Vec<String> = ARROW
         .iter()
         .map(|row| if held { row.replace('#', "g") } else { (*row).to_owned() })
         .collect();
     let rows: Vec<&str> = rows.iter().map(String::as_str).collect();
-    let mouse_u = u * 0.8;
+    let mouse_u = (u * 0.8).round().max(2.0);
     let gap = u * 1.6;
-    let total = 10.0 * u + gap + 5.0 * u * 0.8 + gap + 13.0 * mouse_u;
-    let mut y = r[1] + (r[3] - total) / 2.0;
+    let plus_u = (u * 0.8).round().max(2.0);
+    let total = 10.0 * u + gap + 5.0 * plus_u + gap + 13.0 * mouse_u;
+    let mut y = (r[1] + (r[3] - total) / 2.0).round();
     let cx = r[0] + r[2] / 2.0;
-    pixels(b, a, [cx - 4.5 * u, y], u, &rows);
+    pixels(b, a, [(cx - 4.5 * u).round(), y], u, &rows);
     y += 10.0 * u + gap;
-    pixels(b, a, [cx - 2.5 * u * 0.8, y], u * 0.8, &PLUS);
-    y += 5.0 * u * 0.8 + gap;
-    mouse_icon(b, a, [cx - 5.5 * mouse_u, y], mouse_u, false);
+    pixels(b, a, [(cx - 2.5 * plus_u).round(), y.round()], plus_u, &PLUS);
+    y += 5.0 * plus_u + gap;
+    mouse_icon(b, a, [(cx - 5.5 * mouse_u).round(), y.round()], mouse_u, false);
 }
 
 /// Where an icon's middle is on a plate: the Bedrock plate's face sits a little above and left of its box, so
