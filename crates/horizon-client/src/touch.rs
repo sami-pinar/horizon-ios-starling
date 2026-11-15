@@ -247,6 +247,17 @@ pub fn cursor_mode() -> bool {
         false
     }
 }
+/// The cursor-mode click zones are not drawn (the launcher's "Hide click zones" setting); they still work.
+pub fn mouse_zones_hidden() -> bool {
+    #[cfg(target_os = "ios")]
+    {
+        horizon_ios_launcher::touch_preferences().1 & 64 != 0
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        false
+    }
+}
 pub fn mouse_gestures() -> bool {
     #[cfg(target_os = "ios")]
     {

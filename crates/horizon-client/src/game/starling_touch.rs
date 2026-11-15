@@ -27,6 +27,18 @@ impl Default for StarlingTouch {
         let mut controls = TouchControls::default();
         // The settings button at the top did nothing here (there is no in-game touch settings screen yet).
         controls.settings.button_visibility[Control::Settings as usize] = 2; // 0 follows the scheme, 1 shows, 2 hides
+        // Debug, chat, pause and camera sit together in the middle of the top row, with no hole where the
+        // settings button was.
+        for row in controls.settings.layouts.iter_mut() {
+            for (control, x) in [
+                (Control::Debug, 0.44),
+                (Control::Chat, 0.48),
+                (Control::Pause, 0.52),
+                (Control::Perspective, 0.56),
+            ] {
+                row[control as usize].center[0] = x;
+            }
+        }
         Self {
             controls,
             hotbar: Vec::new(),

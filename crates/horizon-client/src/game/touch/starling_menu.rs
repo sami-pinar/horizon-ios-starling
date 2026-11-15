@@ -26,8 +26,8 @@ const LONG: Duration = Duration::from_millis(480);
 const DOUBLE: Duration = Duration::from_millis(340);
 /// A second touch held this long without lifting holds the left button.
 const HOLD: Duration = Duration::from_millis(150);
-/// GUI pixels of cursor travel per GUI pixel of finger travel, slow and fast.
-const GAIN: (f32, f32) = (1.25, 2.6);
+/// GUI pixels of cursor travel per GUI pixel of finger travel: one and a half times the finger.
+const GAIN: f32 = 1.5;
 /// Lines of scroll per GUI pixel of two-finger travel.
 const SCROLL_LINE: f32 = 12.0;
 
@@ -77,6 +77,8 @@ pub(in crate::game) struct StarlingMenu {
     /// Buttons logically down: left, right.
     down: [bool; 2],
     last_tap: Option<Instant>,
+    /// Two-finger travel not yet turned into whole lines of scroll.
+    scroll: f32,
 }
 
 fn mode_path() -> Option<std::path::PathBuf> {
@@ -258,8 +260,7 @@ impl Game<'_> {
                 };
                 if moved && !long {
                     self.starling_menu_hold_if_again(index);
-                    let speed = delta.0.hypot(delta.1);
-                    let gain = (GAIN.0 + speed / 5.0 * (GAIN.1 - GAIN.0)).min(GAIN.1);
+                    let gain = GAIN;
                     if let Some(size) = self.touch_batch().map(|b| (b.width, b.height)) {
                         let (x, y) = self.starling_menu_pointer(size);
                         let next = (
@@ -272,8 +273,12 @@ impl Game<'_> {
                 }
             }
             Role::Scroll => {
-                let lines = delta.1 / SCROLL_LINE;
+                // Whole lines only: the game's lists ignore a fraction of a line, so the remainder waits.
+                let menu = &mut self.touch.starling_menu;
+                menu.scroll += delta.1 / SCROLL_LINE;
+                let lines = menu.scroll.trunc();
                 if lines != 0.0 {
+                    menu.scroll -= lines;
                     self.touch_wheel(event_loop, lines);
                 }
             }
@@ -418,7 +423,7 @@ impl Game<'_> {
         let keyboard = self.touch_shown() && self.field_focused();
         let atlas = &self.gui.atlas;
         let cursor_mode = self.touch.starling_menu.cursor_mode;
-        if cursor_mode {
+        if cursor_mode && !touch::mouse_zones_hidden() {
             for right in [false, true] {
                 let r = zone_rect(w, h, right);
                 let held = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Zone(right));
@@ -443,7 +448,7 @@ impl Game<'_> {
         let pressed = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Toggle);
         plate(batch, atlas, r, pressed, 190);
         if cursor_mode {
-            arrow(batch, atlas, [r[0] + r[2] * 0.3, r[1] + r[3] * 0.18], r[3] * 0.64 / 17.0);
+            crosshair(batch, atlas, [r[0] + r[2] / 2.0, r[1] + r[3] / 2.0], r[3] * 0.62 / 11.0);
         } else {
             ring_icon(batch, atlas, [r[0] + r[2] / 2.0, r[1] + r[3] / 2.0], r[3] * 0.62 / 13.0);
         }
@@ -469,7 +474,7 @@ impl Game<'_> {
         }
         if cursor_mode {
             let at = self.touch.starling_menu.at.unwrap_or((w / 2.0, h / 2.0));
-            arrow(batch, atlas, [at.0, at.1], 1.0);
+            crosshair(batch, atlas, [at.0, at.1], 1.0);
         }
     }
 }
@@ -530,29 +535,17 @@ fn pixels(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32, rows: &[&str]) {
     }
 }
 
-const ARROW: [&str; 17] = [
-    "X..........",
-    "XX.........",
-    "X#X........",
-    "X##X.......",
-    "X###X......",
-    "X####X.....",
-    "X#####X....",
-    "X######X...",
-    "X#######X..",
-    "X########X.",
-    "X#####XXXXX",
-    "X##X##X....",
-    "X#X.X##X...",
-    "XX..X##X...",
-    "X....X##X..",
-    ".....X##X..",
-    "......XX...",
-];
-
-/// The mouse pointer, its tip at `at`.
-fn arrow(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32) {
-    pixels(b, a, at, u, &ARROW);
+/// A Minecraft crosshair, centred on `at`: a white plus with a dark edge, so it reads on any background.
+fn crosshair(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32) {
+    let arm = 5.0;
+    let (cx, cy) = (at[0].round(), at[1].round());
+    let dark = rgba(16, 16, 20, 230);
+    let white = rgba(255, 255, 255, 255);
+    // Dark edge first, one pixel wider all round, then the white bars.
+    b.fill(a, cx - (arm + 1.0) * u, cy - 1.5 * u, (arm * 2.0 + 3.0) * u, 3.0 * u, dark);
+    b.fill(a, cx - 1.5 * u, cy - (arm + 1.0) * u, 3.0 * u, (arm * 2.0 + 3.0) * u, dark);
+    b.fill(a, cx - arm * u, cy - 0.5 * u, (arm * 2.0 + 1.0) * u, u, white);
+    b.fill(a, cx - 0.5 * u, cy - arm * u, u, (arm * 2.0 + 1.0) * u, white);
 }
 
 /// A touch ring with a dot: tap mode.

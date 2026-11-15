@@ -113,7 +113,9 @@ struct TouchConfiguration: Codable, Equatable {
     var hotbarGestures = true
     var slideableHotbar = false
     var holdDuration = 0.4
-    enum CodingKeys: String, CodingKey { case customButtons, centres, sizes, opacities, forwardLock, showControls, virtualMouse, joystick, mouseGestures, hotbarGestures, slideableHotbar, holdDuration }
+    /// Cursor-mode menus: keep the left/right click zones working but draw nothing (Starling menu input).
+    var hideMouseZones = false
+    enum CodingKeys: String, CodingKey { case customButtons, centres, sizes, opacities, forwardLock, showControls, virtualMouse, joystick, mouseGestures, hotbarGestures, slideableHotbar, holdDuration, hideMouseZones }
     init() {}
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -128,6 +130,7 @@ struct TouchConfiguration: Codable, Equatable {
         mouseGestures = try c.decodeIfPresent(Bool.self, forKey: .mouseGestures) ?? true
         hotbarGestures = try c.decodeIfPresent(Bool.self, forKey: .hotbarGestures) ?? true
         slideableHotbar = try c.decodeIfPresent(Bool.self, forKey: .slideableHotbar) ?? false
+        hideMouseZones = try c.decodeIfPresent(Bool.self, forKey: .hideMouseZones) ?? false
         let duration = try c.decodeIfPresent(Double.self, forKey: .holdDuration) ?? 0.4
         holdDuration = duration.isFinite ? min(2, max(0.1, duration)) : 0.4
     }
@@ -184,7 +187,7 @@ struct TouchConfiguration: Codable, Equatable {
             return [Float(value.width),Float(b == .joystick ? value.width : value.height)]
         }
         let alpha = TouchButton.allCases.map { Float(opacity($0)) }
-        return (points + dimensions + alpha, (forwardLock ? 32 : 0) | (showControls ? 0 : 1) | (virtualMouse ? 2 : 0) | (joystick ? 4 : 0) | (mouseGestures ? 0 : 8) | (hotbarGestures ? 0 : 16))
+        return (points + dimensions + alpha, (forwardLock ? 32 : 0) | (showControls ? 0 : 1) | (virtualMouse ? 2 : 0) | (joystick ? 4 : 0) | (mouseGestures ? 0 : 8) | (hotbarGestures ? 0 : 16) | (hideMouseZones ? 64 : 0))
     }
 }
 
@@ -258,6 +261,9 @@ struct TouchControlsSettings: View {
             Toggle("Hotbar gestures", isOn: Binding(get: { preferences.configuration.hotbarGestures }, set: { value in
                 var c = preferences.configuration; c.hotbarGestures = value; preferences.save(c)
             }))
+            Toggle("Hide click zones in cursor mode", isOn: Binding(get: { preferences.configuration.hideMouseZones }, set: { value in
+                var c = preferences.configuration; c.hideMouseZones = value; preferences.save(c)
+            })).accessibilityIdentifier("touch-hide-mouse-zones")
             Toggle("Slide across hotbar slots", isOn: Binding(get: { preferences.configuration.slideableHotbar }, set: { value in
                 var c = preferences.configuration; c.slideableHotbar = value; preferences.save(c)
             }))
