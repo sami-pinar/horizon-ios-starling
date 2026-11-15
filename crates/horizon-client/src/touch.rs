@@ -290,8 +290,9 @@ pub fn controls_visible() -> bool {
 
 /// The close button over a screen that has none of its own (an inventory, chat, a sign): the top right.
 pub fn close_rect(w: f32, h: f32) -> Rect {
+    // One button in from the corner, which the menu's mode button takes, and clear of a phone's rounded corner.
     let s = (button_size(h) * 0.75).round();
-    [w - s - 4.0, 4.0, s, s]
+    [w - 2.0 * s - 28.0, 10.0, s, s]
 }
 
 /// The keyboard button, left of the close button: over a focused text field, it asks for the system's

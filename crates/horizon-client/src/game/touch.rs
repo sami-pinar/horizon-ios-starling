@@ -19,8 +19,12 @@ use winit::{
     window::WindowId,
 };
 
+mod starling_menu;
+
 #[derive(Default)]
 pub(super) struct TouchInput {
+    /// Menu input: tap and cursor modes (touch/starling_menu.rs).
+    starling_menu: starling_menu::StarlingMenu,
     /// Starling's controls over the world (starling_touch.rs).
     pub(super) starling: super::starling_touch::StarlingTouch,
     #[cfg(target_os = "ios")]
@@ -266,6 +270,10 @@ impl Game<'_> {
             touch.location.y as f32 / batch.scale,
         );
         let playing = self.touch_playing();
+        if !playing && self.starling_on() {
+            self.starling_menu_event(event_loop, &touch, at, (batch.width, batch.height));
+            return Ok(());
+        }
         #[cfg(target_os = "ios")]
         if !playing && (touch::cursor_mode() || horizon_ios_launcher::native_gestures_available()) {
             let auxiliary = self
@@ -419,19 +427,29 @@ impl Game<'_> {
                 self.touch_cursor_frame(event_loop, true);
             }
             self.touch_release_menu(event_loop);
+            self.starling_menu_release(event_loop);
             let _ = self.touch.fingers.release_all();
             self.starling_frame();
             return;
         }
         self.starling_release();
+        let menu_starling = !playing && self.starling_on();
         #[cfg(target_os = "ios")]
-        self.touch_native_frame(event_loop);
-        #[cfg(target_os = "ios")]
-        self.touch_cursor_frame(event_loop, playing);
+        if menu_starling {
+            // Starling's menu input owns the screen: the UIKit recognizers and the Pojav-style cursor stand down.
+            self.touch_native_reset();
+            horizon_ios_launcher::touch_gestures(0, 2, (0.0, 0.0), 1.0);
+        } else {
+            self.touch_native_frame(event_loop);
+            self.touch_cursor_frame(event_loop, playing);
+        }
         if playing {
             self.touch_release_menu(event_loop);
         } else {
             self.touch_menu_frame(event_loop);
+            if menu_starling {
+                self.starling_menu_frame(event_loop);
+            }
         }
         let out = if playing {
             let now = self.touch_now();
@@ -1071,6 +1089,13 @@ impl Game<'_> {
             self.touch.cursor_drawn = Some((self.key_screen(), self.cursor));
         }
         if !touch::controls_visible() || self.hardware_hides_touch() || self.touch_on_phone() {
+            return;
+        }
+        if self.starling_on() && self.touch_shown() {
+            // Starling's menu input draws its own buttons, zones and cursor; not the old overlay.
+            if !self.touch_playing() {
+                self.draw_starling_menu(batch);
+            }
             return;
         }
         #[cfg(target_os = "ios")]

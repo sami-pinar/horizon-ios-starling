@@ -4,7 +4,7 @@
 //! to this module; the pad pipeline (`pad.rs`) does what a controller's buttons do.
 use super::Game;
 use horizon_client::hud::HudBatch;
-use horizon_client_render::touch::{TouchControls, camera_delta, hotbar_slot};
+use horizon_client_render::touch::{Control, TouchControls, camera_delta, hotbar_slot, layout};
 use winit::{
     event::{Touch, TouchPhase},
     keyboard::KeyCode,
@@ -14,13 +14,25 @@ use winit::{
 /// through the same `/ 0.15`.
 const DEGREES_PER_UNIT: f64 = 0.15;
 
-#[derive(Default)]
 pub(super) struct StarlingTouch {
     pub(super) controls: TouchControls,
     /// Fingers that landed on the hotbar: they pick a slot and are nothing else.
     hotbar: Vec<u64>,
     /// The controls were fed to the pad last frame (so a frame without them lets go once).
     pub(super) fed: bool,
+}
+
+impl Default for StarlingTouch {
+    fn default() -> Self {
+        let mut controls = TouchControls::default();
+        // The settings button at the top did nothing here (there is no in-game touch settings screen yet).
+        controls.settings.button_visibility[Control::Settings as usize] = layout::HIDDEN;
+        Self {
+            controls,
+            hotbar: Vec::new(),
+            fed: false,
+        }
+    }
 }
 
 impl Game<'_> {
