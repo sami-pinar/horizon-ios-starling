@@ -572,13 +572,18 @@ impl Game<'_> {
                     && (self.touch.fingers.held(c) || self.touch.cursor_keys.contains(&c))
             })
     }
-    #[cfg(target_os = "ios")]
     /// A key tapped: down and up.
+    #[cfg(target_os = "ios")]
     pub(super) fn touch_press_key(&mut self, key: KeyCode) -> Result<()> {
         self.touch_raw_key(key, true)?;
         self.touch_raw_key(key, false)
     }
+    #[cfg(not(target_os = "ios"))]
+    pub(super) fn touch_press_key(&mut self, _key: KeyCode) -> Result<()> {
+        Ok(())
+    }
 
+    #[cfg(target_os = "ios")]
     fn touch_raw_key(&mut self, key: KeyCode, pressed: bool) -> Result<()> {
         if !pressed && self.touch_key_held(key) {
             return Ok(());
