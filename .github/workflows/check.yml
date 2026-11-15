@@ -23,4 +23,5 @@ jobs:
       - name: Check the render crate
         run: cargo check --locked -p horizon-client-render --tests
       - name: Touch drawing tests
-        run: cargo test --locked -p horizon-client-render touch:: -- --test-threads=2
+        run: |
+          cargo test --locked -p horizon-client-render touch:: -- --test-threads=2
