@@ -335,7 +335,16 @@ pub fn scale(
 
 /// `extractLines` for both columns under the overlay's pose: each line's
 /// background first, then the text, right-aligned in the right column.
-pub fn draw(font: &Font, columns: [&[String]; 2], scale: f32, width: i32) -> Vec<GuiDraw> {
+///
+/// `inset` is how far the text keeps in from the sides and the top, in the overlay's own units: a phone's
+/// rounded corners and notch cut off text that starts at the very edge.
+pub fn draw(
+    font: &Font,
+    columns: [&[String]; 2],
+    scale: f32,
+    width: i32,
+    inset: [i32; 2],
+) -> Vec<GuiDraw> {
     let mut out = vec![GuiDraw::Push(vec![PoseOp::Scale(scale, scale)])];
     for (lines, align_left) in [(columns[0], true), (columns[1], false)] {
         let placed: Vec<(&String, i32, i32, i32)> = lines
@@ -344,8 +353,12 @@ pub fn draw(font: &Font, columns: [&[String]; 2], scale: f32, width: i32) -> Vec
             .filter(|(_, l)| !l.is_empty())
             .map(|(i, l)| {
                 let w = font.width(l) as i32;
-                let left = if align_left { 2 } else { width - 2 - w };
-                (l, left, 2 + LINE_HEIGHT * i as i32, w)
+                let left = if align_left {
+                    2 + inset[0]
+                } else {
+                    width - 2 - inset[0] - w
+                };
+                (l, left, 2 + inset[1] + LINE_HEIGHT * i as i32, w)
             })
             .collect();
         for (_, left, top, w) in &placed {

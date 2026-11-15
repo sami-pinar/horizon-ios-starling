@@ -345,7 +345,20 @@ impl Game<'_> {
         };
         let (left, right) = d.columns(&footer);
         let atlas = &self.gui.atlas;
-        let mut draws = debug_overlay::draw(&atlas.font, [&left, &right], scale, width);
+        // A phone's rounded corners and notch hide text at the very edge: keep the overlay inside them
+        // (56 points at the sides, 10 at the top, converted to the overlay's units).
+        #[cfg(target_os = "ios")]
+        let inset = {
+            let density = self.window.as_ref().map_or(3.0, |w| w.scale_factor()) as f32;
+            let unit = (framebuffer[0] as f32 / width.max(1) as f32).max(1.0);
+            [
+                (56.0 * density / unit).round() as i32,
+                (10.0 * density / unit).round() as i32,
+            ]
+        };
+        #[cfg(not(target_os = "ios"))]
+        let inset = [0, 0];
+        let mut draws = debug_overlay::draw(&atlas.font, [&left, &right], scale, width, inset);
         if self.debug {
             let charts = self.debug_charts.draw(
                 &atlas.font,
