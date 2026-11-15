@@ -283,6 +283,10 @@ impl Pads {
         edges
     }
 
+    /// The touch controls' controller state (`starling_touch.rs`), read as the virtual pad.
+    pub(super) fn feed_touch(&mut self, state: PadState) {
+        self.injected = state;
+    }
     /// A replay's pad button, in place of `pad`'s line.
     pub(super) fn inject_button(&mut self, button: Button, down: bool) {
         self.injected.set(button, down);

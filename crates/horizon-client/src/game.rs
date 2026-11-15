@@ -489,6 +489,7 @@ mod titles;
 mod tnt;
 mod totem;
 mod touch;
+mod starling_touch;
 mod trading;
 mod transient_blocks;
 mod trial_spawner;

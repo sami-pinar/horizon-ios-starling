@@ -21,6 +21,8 @@ use winit::{
 
 #[derive(Default)]
 pub(super) struct TouchInput {
+    /// Starling's controls over the world (starling_touch.rs).
+    pub(super) starling: super::starling_touch::StarlingTouch,
     #[cfg(target_os = "ios")]
     cursor: touch::desktop::Cursor,
     #[cfg(target_os = "ios")]
@@ -255,7 +257,8 @@ impl Game<'_> {
         // A real finger owns input just as a hardware pointer does. Menu
         // touches also pass through key_focus_mouse; world controls do not.
         // Releases/cancellations only finish that finger's own actions.
-        if matches!(touch.phase, TouchPhase::Started | TouchPhase::Moved) {
+        let starling = self.starling_on() && self.touch_playing();
+        if !starling && matches!(touch.phase, TouchPhase::Started | TouchPhase::Moved) {
             self.pad_yield_input(event_loop);
         }
         let at = (
@@ -302,6 +305,16 @@ impl Game<'_> {
                 }
             } else {
                 self.touch_menu(event_loop, touch.id, touch.phase, at);
+            }
+            return Ok(());
+        }
+        if starling {
+            let size = self
+                .renderer
+                .as_ref()
+                .map(|r| (r.config.width, r.config.height));
+            if let Some(size) = size {
+                self.starling_event(&touch, size);
             }
             return Ok(());
         }
@@ -395,9 +408,24 @@ impl Game<'_> {
             }
             return;
         }
+        let playing = self.touch_playing();
+        if playing && self.starling_on() {
+            // Starling's controls own the world: the UIKit recognizers stand down so they cannot take a finger
+            // from the controls, and the Pojav-style overlay lets go of everything.
+            #[cfg(target_os = "ios")]
+            {
+                self.touch_native_reset();
+                horizon_ios_launcher::touch_gestures(0, 2, (0.0, 0.0), 1.0);
+                self.touch_cursor_frame(event_loop, true);
+            }
+            self.touch_release_menu(event_loop);
+            let _ = self.touch.fingers.release_all();
+            self.starling_frame();
+            return;
+        }
+        self.starling_release();
         #[cfg(target_os = "ios")]
         self.touch_native_frame(event_loop);
-        let playing = self.touch_playing();
         #[cfg(target_os = "ios")]
         self.touch_cursor_frame(event_loop, playing);
         if playing {
@@ -545,6 +573,12 @@ impl Game<'_> {
             })
     }
     #[cfg(target_os = "ios")]
+    /// A key tapped: down and up.
+    pub(super) fn touch_press_key(&mut self, key: KeyCode) -> Result<()> {
+        self.touch_raw_key(key, true)?;
+        self.touch_raw_key(key, false)
+    }
+
     fn touch_raw_key(&mut self, key: KeyCode, pressed: bool) -> Result<()> {
         if !pressed && self.touch_key_held(key) {
             return Ok(());
@@ -994,6 +1028,10 @@ impl Game<'_> {
             || !self.touch_playing()
             || self.touch_on_phone()
         {
+            return;
+        }
+        if self.starling_on() {
+            self.draw_starling_controls(batch);
             return;
         }
         let atlas = &self.gui.atlas;
