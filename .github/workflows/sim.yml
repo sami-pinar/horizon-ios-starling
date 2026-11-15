@@ -1,0 +1,53 @@
+name: sim
+# The game for the iOS Simulator (Apple Silicon), for a Mac that has no Rust: the same build as ios.yml but for
+# aarch64-apple-ios-sim, zipped as a simulator .app that `simctl install` takes as it is.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  HORIZON_TELEMETRY_URL: "off"
+  IOS_TARGET: aarch64-apple-ios-sim
+  HORIZON_MSA_CLIENT_ID: "331e08f8-172d-43b9-835a-3108c2fcdbf3"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_INCREMENTAL: "0"
+  IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+jobs:
+  sim:
+    runs-on: macos-26
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.IOS_TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: sim-${{ env.IOS_TARGET }}
+      - name: Build the game
+        run: cargo build --release --locked --target "$IOS_TARGET" -p horizon-official --no-default-features --features audio,horizon-extras
+      - name: Bundle it
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          ( cd packaging/ios && xcodegen generate )
+          HORIZON_GAME_PREBUILT=1 xcodebuild -project packaging/ios/HorizonIOS.xcodeproj \
+            -target HorizonGame -configuration Release -sdk iphonesimulator -arch arm64 \
+            IOS_TARGET="$IOS_TARGET" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf \
+            CONFIGURATION_BUILD_DIR="$PWD/build-sim" \
+            build > xcode-sim-build.log 2>&1 || { tail -60 xcode-sim-build.log; exit 1; }
+          ditto -c -k --keepParent build-sim/HorizonGame.app HorizonGame-sim.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: horizon-sim
+          path: HorizonGame-sim.zip
+          retention-days: 7
+          if-no-files-found: error
