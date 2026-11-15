@@ -9,6 +9,11 @@ Newest first. One entry per change: what, why, how it was checked.
   (More, Hide GUI, Sprint, click buttons) no longer appears in menus.
 * The top-row **settings button** did nothing; it is hidden by default.
 * This documentation folder was added.
+* Checked in the simulator (menus): tap mode opened Options with a plain tap; mode button flips and remembers the
+  mode; in cursor mode a drag moved the cursor and highlighted the button under it, a quick tap clicked World
+  Options, a tap on the upper-left zone clicked Cancel with the other hand, a long press right-clicked an
+  inventory stack (64 stone became 32 carried). Not testable with the simulator tool: tap-then-hold (needs two
+  touches within 340 ms) and two-finger scroll; both are implemented and need a check on the phone.
 
 ## 2026-11-15: F3 overlay inside the corners
 * The debug overlay started at the very edge and was cut off by the phone's rounded corners and notch. It is now

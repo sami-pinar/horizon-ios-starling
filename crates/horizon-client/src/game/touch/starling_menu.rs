@@ -272,7 +272,7 @@ impl Game<'_> {
                 }
             }
             Role::Scroll => {
-                let lines = (delta.1 / SCROLL_LINE) * 2.0;
+                let lines = delta.1 / SCROLL_LINE;
                 if lines != 0.0 {
                     self.touch_wheel(event_loop, lines);
                 }
