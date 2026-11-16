@@ -41,3 +41,9 @@ copies partway; `ulimit -n 10240` helps).
 `tools/ci/local-sim.sh` builds the game for the simulator and installs it, the local twin of `sim.yml`. It needs
 rustup (with `aarch64-apple-ios-sim`), Xcode and xcodegen; `target/` takes about 5 GB. Measured on an M4: the first
 build 6.5 minutes (GitHub: about 15), a small change 1 minute 40 seconds.
+
+## Local phone builds (2026-11-16)
+
+`tools/ci/local-ios.sh` builds for the device, stamps, signs and installs on the phone, reading the signing details
+from `~/.erkam/signing.env` (certificate, profile, entitlements, device, bundle id; never committed). Measured on an
+M4: the first build 11 minutes, a small change 4 minutes (GitHub: about 15 to 20).

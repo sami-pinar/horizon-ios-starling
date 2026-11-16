@@ -212,7 +212,7 @@ impl Game<'_> {
             self.touch.starling.controls.viewport(size.0.max(1), size.1.max(1));
         }
         let (w, h) = (batch.width, batch.height);
-        batch.fill(&self.gui.atlas, 0.0, 0.0, w, h, rgba(0, 0, 0, 215));
+        batch.fill(&self.gui.atlas, 0.0, 0.0, w, h, rgba(6, 6, 10, 240));
         self.touch.starling.controls.draw(batch, &self.gui.atlas);
     }
 

@@ -62,3 +62,5 @@
 # Local simulator build output (tools/ci/local-sim.sh)
 /build-sim/
 /build-sim.log
+/build-ios/
+/build-ios.log
