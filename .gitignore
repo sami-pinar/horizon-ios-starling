@@ -58,3 +58,7 @@
 
 # Xcode intermediate products generated beside the iOS project.
 /packaging/ios/build/
+
+# Local simulator build output (tools/ci/local-sim.sh)
+/build-sim/
+/build-sim.log

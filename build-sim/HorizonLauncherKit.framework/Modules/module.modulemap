@@ -1,4 +1,0 @@
-framework module HorizonLauncherKit {
-  header "HorizonLauncherKit-Swift.h"
-  requires objc
-}
