@@ -35,3 +35,9 @@ from a local Horizon launcher install and are never committed.
 the path given: it wiped the game files, packs and worlds from a phone twice. Copy without it (existing files are
 skipped when unchanged), and repeat a big copy until the entry count matches (an open-file limit stops long
 copies partway; `ulimit -n 10240` helps).
+
+## Local simulator builds on the Mac (2026-11-16)
+
+`tools/ci/local-sim.sh` builds the game for the simulator and installs it, the local twin of `sim.yml`. It needs
+rustup (with `aarch64-apple-ios-sim`), Xcode and xcodegen; `target/` takes about 5 GB. Measured on an M4: the first
+build 6.5 minutes (GitHub: about 15), a small change 1 minute 40 seconds.
