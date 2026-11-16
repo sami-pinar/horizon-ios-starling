@@ -2,6 +2,10 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-16: Title banner back to RUST EDITION
+* The banner under the Minecraft logo reads RUST EDITION again, in the original lettering (`title_edition.rs` is
+  as it was before the Erkam banner). The version line, launcher and app keep the Erkam name.
+
 ## 2026-11-15: Erkam branding, real shift-click, touch controls editor
 * **Shift strip is a shift-click now**: tapping it clicks left at the cursor with Shift down (the click is queued
   behind the key; Shift comes up two frames after the last queued edge). Holding the finger on it keeps Shift down.
