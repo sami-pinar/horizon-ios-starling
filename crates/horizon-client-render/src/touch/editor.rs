@@ -96,6 +96,8 @@ pub struct Editor {
     pub save_create_new_mode: bool,
     /// True when the Back confirmation dialog (`[ Save ]` / `[ Back ]`) is open.
     pub back_confirm_open: bool,
+    /// The icon picker is open for the selected button.
+    pub icon_picker: bool,
 }
 
 enum Drag {
@@ -147,6 +149,7 @@ impl TouchControls {
             keyboard_request: false,
             save_create_new_mode: is_default,
             back_confirm_open: false,
+            icon_picker: false,
         });
     }
     pub fn cancel_editor_gesture(&mut self) {
@@ -218,6 +221,24 @@ impl TouchControls {
             e.drag = None;
         }
         self.clicked |= started;
+        if e.icon_picker {
+            if started {
+                self.pick_icon(&mut e, p);
+            }
+            self.editor = Some(e);
+            return false;
+        }
+        if started
+            && !e.palette
+            && !e.key_picker
+            && layout::contains(ICON_BUTTON, p)
+            && (e.selected.is_some_and(|c| c != Control::Move) || e.selected_custom.is_some())
+        {
+            e.icon_picker = true;
+            e.drag = None;
+            self.editor = Some(e);
+            return false;
+        }
         if self.edit_custom(&mut e, id, p, started, ended) {
             self.editor = Some(e);
             return false;
@@ -416,6 +437,9 @@ impl TouchControls {
             plate(b, a, [0.32, 0.46, 0.115, 0.06], "PassThru", p.passthrough);
             plate(b, a, [0.442, 0.46, 0.115, 0.06], "Toggle", p.toggleable);
             plate(b, a, [0.565, 0.46, 0.115, 0.06], "Swipe", p.swipeable);
+            if selected != Control::Move {
+                plate(b, a, ICON_BUTTON, "Icon", p.icon_id != 0);
+            }
             plate(
                 b,
                 a,
@@ -501,6 +525,9 @@ impl TouchControls {
             }
         }
         self.draw_custom_editor(b, a, e);
+        if e.icon_picker {
+            self.draw_icon_picker(b, a, e);
+        }
         if e.error.is_some() {
             b.text(
                 a,
@@ -523,47 +550,40 @@ fn palette_rect(index: usize) -> [f32; 4] {
 }
 fn plate(b: &mut HudBatch, a: &HudAtlas, [x, y, w, h]: [f32; 4], label: &str, on: bool) {
     let (bw, bh) = (b.width, b.height);
+    let rect = [x * bw, y * bh, w * bw, h * bh];
+    // The dark Bedrock plate, green while switched on, with white text shadowed like Minecraft's.
     nine(
         b,
         a,
-        "ui/button_borderless_light",
-        1.0,
-        [x * bw, y * bh, w * bw, h * bh],
+        "ui/joystick_knob",
+        3.0,
+        rect,
         if on {
-            rgba(100, 210, 90, 255)
+            rgba(120, 235, 105, 255)
         } else {
             rgba(255, 255, 255, 255)
         },
     );
-    if let Some((first, second)) = label.split_once(" & ") {
-        b.text(
-            a,
-            &format!("{first} &"),
-            x * bw + 3.0,
-            y * bh + (h * bh - 20.0) / 2.0,
-            rgba(35, 35, 35, 255),
-            false,
-        );
-        b.text(
-            a,
-            second,
-            x * bw + 3.0,
-            y * bh + (h * bh - 20.0) / 2.0 + 10.0,
-            rgba(35, 35, 35, 255),
-            false,
-        );
-    } else {
-        let mut display = label.to_owned();
-        while HudBatch::text_width(a, &display) > w * bw - 6.0 && !display.is_empty() {
+    let white = rgba(255, 255, 255, 255);
+    let lines: Vec<&str> = match label.split_once(" & ") {
+        Some((first, second)) => vec![first, second],
+        None => vec![label],
+    };
+    let line_h = 9.0;
+    let top = rect[1] + (rect[3] - line_h * lines.len() as f32) / 2.0;
+    for (i, line) in lines.iter().enumerate() {
+        let mut display = (*line).to_owned();
+        while HudBatch::text_width(a, &display) > rect[2] - 6.0 && !display.is_empty() {
             display.pop();
         }
+        let tw = HudBatch::text_width(a, &display);
         b.text(
             a,
             &display,
-            x * bw + 3.0,
-            y * bh + (h * bh - 8.0) / 2.0,
-            rgba(35, 35, 35, 255),
-            false,
+            (rect[0] + (rect[2] - tw) / 2.0).floor(),
+            (top + i as f32 * line_h).floor(),
+            white,
+            true,
         );
     }
 }
@@ -865,6 +885,7 @@ impl TouchControls {
             plate(b, a, [0.32, 0.46, 0.115, 0.06], "PassThru", p.passthrough);
             plate(b, a, [0.442, 0.46, 0.115, 0.06], "Toggle", p.toggleable);
             plate(b, a, [0.565, 0.46, 0.115, 0.06], "Swipe", p.swipeable);
+            plate(b, a, ICON_BUTTON, "Icon", p.icon_id != 0);
             plate(
                 b,
                 a,
@@ -955,6 +976,92 @@ impl TouchControls {
         }
     }
 }
+/// The Icon button beside PassThru, Toggle and Swipe.
+const ICON_BUTTON: [f32; 4] = [0.69, 0.46, 0.115, 0.06];
+const ICON_COLUMNS: usize = 8;
+
+impl TouchControls {
+    /// Cell `i` of the icon picker (0 is "Default", then the icons): square on screen, the grid centred.
+    fn icon_cell(&self, i: usize) -> [f32; 4] {
+        let side_h = 0.135;
+        let side_w = side_h / self.aspect();
+        let left = 0.5 - side_w * ICON_COLUMNS as f32 / 2.0;
+        let (col, row) = (i % ICON_COLUMNS, i / ICON_COLUMNS);
+        [
+            left + col as f32 * side_w + side_w * 0.06,
+            0.24 + row as f32 * side_h + side_h * 0.06,
+            side_w * 0.88,
+            side_h * 0.88,
+        ]
+    }
+    /// The icon id of the selected button, in the layout being edited.
+    fn selected_icon(&self, e: &Editor) -> u8 {
+        let mode = self.settings.mode.index();
+        if let Some(i) = e.selected_custom {
+            return self
+                .settings
+                .custom_buttons
+                .get(i)
+                .map_or(0, |btn| btn.layouts[mode].icon_id);
+        }
+        e.selected
+            .map_or(0, |c| self.settings.layouts[mode][self.settings.slot(c)].icon_id)
+    }
+    fn pick_icon(&mut self, e: &mut Editor, p: [f32; 2]) {
+        for i in 0..=usize::from(icons::ICON_COUNT) {
+            if layout::contains(self.icon_cell(i), p) {
+                let id = i as u8;
+                // Every layout of the scheme list keeps the picture, so switching schemes does not lose it.
+                if let Some(index) = e.selected_custom {
+                    if let Some(btn) = self.settings.custom_buttons.get_mut(index) {
+                        for place in &mut btn.layouts {
+                            place.icon_id = id;
+                        }
+                    }
+                } else if let Some(c) = e.selected {
+                    let slot = self.settings.slot(c);
+                    for row in &mut self.settings.layouts {
+                        row[slot].icon_id = id;
+                    }
+                }
+                break;
+            }
+        }
+        // A tap on a picture picks it; a tap anywhere closes the picker.
+        e.icon_picker = false;
+    }
+    fn draw_icon_picker(&self, b: &mut HudBatch, a: &HudAtlas, e: &Editor) {
+        let (w, h) = (b.width, b.height);
+        b.fill(a, 0.0, 0.0, w, h, rgba(0, 0, 0, 120));
+        b.fill(a, w * 0.1, h * 0.12, w * 0.8, h * 0.78, rgba(15, 15, 15, 250));
+        let title = "Choose an icon";
+        let tw = HudBatch::text_width(a, title);
+        b.text(a, title, ((w - tw) / 2.0).floor(), h * 0.17, rgba(245, 245, 245, 255), true);
+        let current = self.selected_icon(e);
+        for i in 0..=usize::from(icons::ICON_COUNT) {
+            let cell = self.icon_cell(i);
+            plate(b, a, cell, "", i as u8 == current);
+            let rect = [cell[0] * w, cell[1] * h, cell[2] * w, cell[3] * h];
+            if i == 0 {
+                let tw = HudBatch::text_width(a, "Auto");
+                b.text(
+                    a,
+                    "Auto",
+                    (rect[0] + (rect[2] - tw) / 2.0).floor(),
+                    (rect[1] + (rect[3] - 8.0) / 2.0).floor(),
+                    rgba(35, 35, 35, 255),
+                    false,
+                );
+            } else {
+                icons::draw_icon(b, a, i as u8, rect, 255);
+            }
+        }
+        let name = icons::icon_name(current);
+        let nw = HudBatch::text_width(a, name);
+        b.text(a, name, ((w - nw) / 2.0).floor(), h * 0.82, rgba(200, 200, 205, 255), true);
+    }
+}
+
 fn key_rect(i: usize) -> [f32; 4] {
     [0.15, 0.25 + i as f32 * 0.072, 0.7, 0.06]
 }

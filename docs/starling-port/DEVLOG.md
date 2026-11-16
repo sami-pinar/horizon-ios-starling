@@ -2,6 +2,23 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-16: Touch Controls menu, icons, cursor zones, custom buttons that work
+* **Custom buttons now do something**: their key events were dropped in `starling_frame`. `starling_token` presses the
+  key, mouse button, wheel step or game action (`action:key.pickItem` is the key it is bound to) through the same
+  paths as the hardware does (`touch_custom_key`, `touch_custom_button`). Checked in the simulator: a button bound to
+  the wheel moved the hotbar slot.
+* **Options > Controls > Touch Controls** opens a menu first (`touch/starling_panel.rs`): camera sensitivity, cursor
+  speed, button size, left-handed, control scheme (cycle), layout preset (cycle) and save-as-new, then Edit Layout
+  (Starling's editor) and Edit Cursor Buttons.
+* **Icons** (`touch/icons.rs`): 28 pixel icons; select a button in the editor, tap Icon, pick one. Works for the
+  built-in and the custom buttons; the picture is kept in all three schemes.
+* **Cursor buttons editor**: the two mouse buttons and the shift strip can be moved and resized; they snap to a grid
+  of 32 x 16 cells by default (`CursorConfig`, saved in `Documents/starling-cursor.txt`, as is the cursor speed).
+* The shift strip's plate is drawn in nine slices, so it is no longer stretched; the cursor is four short arms with a
+  gold centre and a soft shadow.
+* The editor's plates are the dark Bedrock plate with shadowed white text; its toolbar draws over the HUD buttons.
+* Measured: a small change builds in the simulator in about 2.5 minutes on the Mac (`tools/ci/local-sim.sh`).
+
 ## 2026-11-16: Title banner back to RUST EDITION
 * The banner under the Minecraft logo reads RUST EDITION again, in the original lettering (`title_edition.rs` is
   as it was before the Erkam banner). The version line, launcher and app keep the Erkam name.

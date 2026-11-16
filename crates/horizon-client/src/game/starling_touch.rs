@@ -114,10 +114,13 @@ impl Game<'_> {
         let perspective = std::mem::take(&mut controls.perspective_requested);
         controls.settings_requested = false;
         controls.clicked = false;
-        controls.key_events();
+        let custom = controls.key_events();
         controls.take_tap();
         self.pad.feed_touch(state);
         self.touch.starling.fed = true;
+        for (token, down) in custom {
+            self.starling_token(&token, down);
+        }
         for (requested, key) in [
             (chat, KeyCode::KeyT),
             (debug, KeyCode::F3),
@@ -129,24 +132,60 @@ impl Game<'_> {
         }
     }
 
+    /// A custom button's key or mouse button going down or up: the token names a keyboard key, a mouse button, a
+    /// wheel step, or a game action (`action:key.pickItem`), which stands for the key it is bound to.
+    fn starling_token(&mut self, token: &str, down: bool) {
+        if let Some(action) = token.strip_prefix("action:") {
+            let bound = horizon_client::keybinds::KeyBinds::default_of(action);
+            if bound != "key.keyboard.unknown" {
+                self.starling_token(bound, down);
+            }
+            return;
+        }
+        if token == "mouse.scroll.up" || token == "mouse.scroll.down" {
+            if down {
+                self.selected = if token == "mouse.scroll.up" {
+                    (self.selected + 8) % 9
+                } else {
+                    (self.selected + 1) % 9
+                };
+            }
+            return;
+        }
+        if let Some(button) = horizon_client::keybinds::mouse_button(token) {
+            let _ = self.touch_custom_button(button, down);
+        } else if let Some(key) = horizon_client::keybinds::key_code(token) {
+            let _ = self.touch_custom_key(key, down);
+        }
+    }
+
     /// The editor of the touch controls is open (Options > Controls > Touch Controls): it owns every finger and
     /// draws over the screen it was opened from.
     pub(super) fn starling_editing(&self) -> bool {
-        self.starling_on() && self.touch.starling.controls.editor.is_some()
+        self.starling_on() && (self.touch.starling.controls.editor.is_some() || self.starling_panel_open())
     }
 
+    /// Options > Controls > Touch Controls: opens the settings menu, which leads to the editors.
     pub(super) fn starling_open_editor(&mut self) {
         if !self.starling_on() {
             return;
         }
-        if let Some(size) = self.renderer.as_ref().map(|r| (r.config.width, r.config.height)) {
-            self.touch.starling.controls.viewport(size.0.max(1), size.1.max(1));
-        }
-        self.touch.starling.controls.open_editor();
+        self.starling_panel_show();
     }
 
-    /// A finger while editing. `size` is the surface in pixels.
-    pub(super) fn starling_editor_event(&mut self, touch: &Touch, size: (u32, u32)) {
+    /// A finger while the settings or an editor is open. `size` is the surface in pixels; `at` and `gui` are the
+    /// finger and the screen in GUI pixels.
+    pub(super) fn starling_editor_event(
+        &mut self,
+        touch: &Touch,
+        size: (u32, u32),
+        at: (f32, f32),
+        gui: (f32, f32),
+    ) {
+        if self.touch.starling.controls.editor.is_none() {
+            self.starling_panel_event(touch, at, gui);
+            return;
+        }
         let (width, height) = (size.0.max(1), size.1.max(1));
         let point = [
             (touch.location.x as f32 / width as f32).clamp(0.0, 1.0),
@@ -165,6 +204,10 @@ impl Game<'_> {
 
     /// The editor: the screen dimmed, and the controls as they sit, to move, resize, add and remove.
     pub(super) fn draw_starling_editor(&mut self, batch: &mut HudBatch) {
+        if self.touch.starling.controls.editor.is_none() {
+            self.draw_starling_panel(batch);
+            return;
+        }
         if let Some(size) = self.renderer.as_ref().map(|r| (r.config.width, r.config.height)) {
             self.touch.starling.controls.viewport(size.0.max(1), size.1.max(1));
         }
@@ -179,6 +222,10 @@ impl Game<'_> {
             self.touch.starling.controls.clear();
             self.touch.starling.hotbar.clear();
             self.pad.feed_touch(Default::default());
+            // Whatever a custom button held is let go of.
+            for (token, down) in self.touch.starling.controls.key_events() {
+                self.starling_token(&token, down);
+            }
         }
     }
 

@@ -20,11 +20,14 @@ use winit::{
 };
 
 mod starling_menu;
+mod starling_panel;
 
 #[derive(Default)]
 pub(super) struct TouchInput {
     /// Menu input: tap and cursor modes (touch/starling_menu.rs).
     starling_menu: starling_menu::StarlingMenu,
+    /// The Touch Controls settings (touch/starling_panel.rs).
+    starling_panel: starling_panel::StarlingPanel,
     /// Starling's controls over the world (starling_touch.rs).
     pub(super) starling: super::starling_touch::StarlingTouch,
     #[cfg(target_os = "ios")]
@@ -276,7 +279,7 @@ impl Game<'_> {
                 .as_ref()
                 .map(|r| (r.config.width, r.config.height));
             if let Some(size) = size {
-                self.starling_editor_event(&touch, size);
+                self.starling_editor_event(&touch, size, at, (batch.width, batch.height));
             }
             return Ok(());
         }
@@ -612,6 +615,26 @@ impl Game<'_> {
     }
     #[cfg(not(target_os = "ios"))]
     pub(super) fn touch_press_key(&mut self, _key: KeyCode) -> Result<()> {
+        Ok(())
+    }
+
+    /// A key a custom touch button holds or lets go of.
+    #[cfg(target_os = "ios")]
+    pub(super) fn touch_custom_key(&mut self, key: KeyCode, pressed: bool) -> Result<()> {
+        self.touch_raw_key(key, pressed)
+    }
+    #[cfg(not(target_os = "ios"))]
+    pub(super) fn touch_custom_key(&mut self, _key: KeyCode, _pressed: bool) -> Result<()> {
+        Ok(())
+    }
+
+    /// A mouse button a custom touch button holds or lets go of.
+    #[cfg(target_os = "ios")]
+    pub(super) fn touch_custom_button(&mut self, button: MouseButton, pressed: bool) -> Result<()> {
+        self.touch_raw_button(button, pressed)
+    }
+    #[cfg(not(target_os = "ios"))]
+    pub(super) fn touch_custom_button(&mut self, _button: MouseButton, _pressed: bool) -> Result<()> {
         Ok(())
     }
 

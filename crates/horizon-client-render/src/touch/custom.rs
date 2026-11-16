@@ -512,6 +512,10 @@ impl TouchControls {
             }
             if is_goy {
                 draw_goy_static_button(b, a, rect, &p, &button.label(), held, toggled, opacity);
+            } else if p.icon_id != 0 {
+                let color = rgba(255, 255, 255, (opacity * 255.0).round() as u8);
+                text_button(b, a, rect, "", pressed, color, true);
+                icons::draw_icon(b, a, p.icon_id, rect, (opacity * 255.0).round() as u8);
             } else {
                 text_button(
                     b,

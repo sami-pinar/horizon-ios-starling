@@ -28,8 +28,92 @@ const LONG: Duration = Duration::from_millis(480);
 const DOUBLE: Duration = Duration::from_millis(340);
 /// A second touch held this long without lifting holds the left button.
 const HOLD: Duration = Duration::from_millis(150);
-/// GUI pixels of cursor travel per GUI pixel of finger travel: one and a half times the finger.
-const GAIN: f32 = 1.5;
+/// The click zones' default places, as fractions of the screen (x, y, width, height): left click, right click and
+/// the shift strip. They sit on the grid of `GRID` cells across and `GRID / 2` down.
+pub(in crate::game) const DEFAULT_ZONES: [[f32; 4]; 3] = [
+    [0.0, 0.0, 0.25, 0.5],
+    [0.0, 0.5, 0.25, 0.5],
+    [0.25, 0.0, 0.125, 1.0],
+];
+/// The editor's snap grid: this many cells across the screen, half as many down.
+pub(in crate::game) const GRID: f32 = 32.0;
+
+/// What the player set for cursor mode: how fast the cursor runs (GUI pixels of cursor per GUI pixel of finger),
+/// where the three click zones are, and whether the zone editor snaps to its grid. Kept in
+/// `Documents/starling-cursor.txt`.
+#[derive(Clone)]
+pub(in crate::game) struct CursorConfig {
+    pub(in crate::game) speed: f32,
+    pub(in crate::game) snap: bool,
+    pub(in crate::game) zones: [[f32; 4]; 3],
+}
+
+impl Default for CursorConfig {
+    fn default() -> Self {
+        Self {
+            speed: 1.5,
+            snap: true,
+            zones: DEFAULT_ZONES,
+        }
+    }
+}
+
+impl CursorConfig {
+    fn path() -> Option<std::path::PathBuf> {
+        Some(std::path::PathBuf::from(std::env::var_os("HOME")?).join("Documents/starling-cursor.txt"))
+    }
+
+    pub(in crate::game) fn load() -> Self {
+        let mut config = Self::default();
+        let Some(text) = Self::path().and_then(|path| std::fs::read_to_string(path).ok()) else {
+            return config;
+        };
+        for line in text.lines() {
+            let words: Vec<&str> = line.split_whitespace().collect();
+            let number = |i: usize| words.get(i).and_then(|w| w.parse::<f32>().ok()).filter(|v| v.is_finite());
+            match words.first().copied() {
+                Some("speed") => {
+                    if let Some(v) = number(1) {
+                        config.speed = v.clamp(0.5, 3.0);
+                    }
+                }
+                Some("snap") => config.snap = number(1).is_none_or(|v| v != 0.0),
+                Some("zone") => {
+                    if let (Some(i), Some(x), Some(y), Some(w), Some(h)) =
+                        (number(1), number(2), number(3), number(4), number(5))
+                        && (0.0..3.0).contains(&i)
+                        && w > 0.03
+                        && h > 0.05
+                        && x >= 0.0
+                        && y >= 0.0
+                        && x + w <= 1.001
+                        && y + h <= 1.001
+                    {
+                        config.zones[i as usize] = [x, y, w, h];
+                    }
+                }
+                _ => {}
+            }
+        }
+        config
+    }
+
+    pub(in crate::game) fn save(&self) {
+        if let Some(path) = Self::path() {
+            let mut text = format!("speed {}\nsnap {}\n", self.speed, u8::from(self.snap));
+            for (i, [x, y, w, h]) in self.zones.iter().enumerate() {
+                text.push_str(&format!("zone {i} {x} {y} {w} {h}\n"));
+            }
+            let _ = std::fs::write(path, text);
+        }
+    }
+
+    /// Zone `zone`'s rectangle on a screen `w` by `h` GUI pixels.
+    pub(in crate::game) fn rect(&self, zone: usize, w: f32, h: f32) -> touch::Rect {
+        let [x, y, zw, zh] = self.zones[zone];
+        [(x * w).round(), (y * h).round(), (zw * w).round(), (zh * h).round()]
+    }
+}
 /// Lines of scroll per GUI pixel of two-finger travel.
 const SCROLL_LINE: f32 = 12.0;
 
@@ -89,6 +173,8 @@ pub(in crate::game) struct StarlingMenu {
     shift_off: Option<u64>,
     /// The eye button hid the click zones.
     zones_hidden: bool,
+    /// The player's cursor settings.
+    pub(in crate::game) config: CursorConfig,
 }
 
 fn mode_path() -> Option<std::path::PathBuf> {
@@ -114,22 +200,6 @@ pub fn toggle_rect(w: f32, h: f32) -> touch::Rect {
     [w - s - 24.0, 10.0, s, s]
 }
 
-/// The click zones take a quarter and a half of the screen's width: the two mouse buttons two thirds of that,
-/// and the shift strip, half as wide as a button but the whole height, the last third.
-fn zones_width(w: f32) -> f32 {
-    w * 0.375
-}
-
-fn zone_rect(w: f32, h: f32, right: bool) -> touch::Rect {
-    let top = if right { h / 2.0 } else { 0.0 };
-    [0.0, top, zones_width(w) * 2.0 / 3.0, h / 2.0]
-}
-
-fn shift_rect(w: f32, h: f32) -> touch::Rect {
-    let x = zones_width(w) * 2.0 / 3.0;
-    [x, 0.0, zones_width(w) - x, h]
-}
-
 /// The eye button under the mode button: shows or hides the click zones.
 fn eye_rect(w: f32, h: f32) -> touch::Rect {
     let t = toggle_rect(w, h);
@@ -137,11 +207,17 @@ fn eye_rect(w: f32, h: f32) -> touch::Rect {
 }
 
 impl Game<'_> {
+    /// The zone under `at`, if any: 0 left click, 1 right click, 2 the shift strip.
+    fn starling_zone_at(&self, at: (f32, f32), size: (f32, f32)) -> Option<usize> {
+        (0..3).find(|&zone| touch::hit_rect(self.touch.starling_menu.config.rect(zone, size.0, size.1), at))
+    }
+
     fn starling_menu_load(&mut self) {
         if self.touch.starling_menu.loaded {
             return;
         }
         self.touch.starling_menu.loaded = true;
+        self.touch.starling_menu.config = CursorConfig::load();
         let saved = mode_path()
             .and_then(|path| std::fs::read_to_string(path).ok())
             .unwrap_or_default();
@@ -231,23 +307,25 @@ impl Game<'_> {
         {
             finger.role = Role::Direct;
             self.touch_menu(event_loop, id, TouchPhase::Started, at);
-        } else if touch::hit_rect(shift_rect(w, h), at) {
-            finger.role = Role::Shift;
-            self.touch.starling_menu.shift_off = None;
-            self.starling_menu_shift(true);
-            // The strip clicks at once: Shift is down before the press goes out.
-            self.starling_menu_click(MouseButton::Left);
-        } else if at.0 < zones_width(w) {
-            let right = at.1 >= h / 2.0;
-            finger.role = Role::Zone(right);
-            self.starling_menu_edge(
-                if right {
-                    MouseButton::Right
-                } else {
-                    MouseButton::Left
-                },
-                true,
-            );
+        } else if let Some(zone) = self.starling_zone_at(at, size) {
+            if zone == 2 {
+                finger.role = Role::Shift;
+                self.touch.starling_menu.shift_off = None;
+                self.starling_menu_shift(true);
+                // The strip clicks at once: Shift is down before the press goes out.
+                self.starling_menu_click(MouseButton::Left);
+            } else {
+                let right = zone == 1;
+                finger.role = Role::Zone(right);
+                self.starling_menu_edge(
+                    if right {
+                        MouseButton::Right
+                    } else {
+                        MouseButton::Left
+                    },
+                    true,
+                );
+            }
         } else {
             let pads = self
                 .touch
@@ -318,7 +396,7 @@ impl Game<'_> {
                 };
                 if moved && !long {
                     self.starling_menu_hold_if_again(index);
-                    let gain = GAIN;
+                    let gain = self.touch.starling_menu.config.speed;
                     if let Some(size) = self.touch_batch().map(|b| (b.width, b.height)) {
                         let (x, y) = self.starling_menu_pointer(size);
                         let next = (
@@ -427,7 +505,8 @@ impl Game<'_> {
     /// else is drawn over a screen, such as the chat typing bar, keeps right of it.
     pub(in crate::game) fn starling_zones_reach(&self, width: f32) -> f32 {
         if self.starling_on() && self.touch.starling_menu.cursor_mode && !self.starling_menu_zones_hidden() {
-            zones_width(width)
+            // The zones on the left half of the screen: what is drawn over a screen keeps right of them.
+            self.touch.starling_menu.config.zones.iter().filter(|z| z[0] + z[2] / 2.0 < 0.5).map(|z| (z[0] + z[2]) * width).fold(0.0, f32::max)
         } else {
             0.0
         }
@@ -520,32 +599,15 @@ impl Game<'_> {
         let cursor_mode = self.touch.starling_menu.cursor_mode;
         let zones_hidden = self.starling_menu_zones_hidden();
         if cursor_mode && !zones_hidden {
-            for right in [false, true] {
-                let r = zone_rect(w, h, right);
-                let held = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Zone(right));
-                let inset = 6.0;
-                let plate_r = [r[0] + inset, r[1] + inset, r[2] - inset * 1.5, r[3] - inset * 2.0];
-                plate(batch, atlas, plate_r, held, 120);
-                let side = (plate_r[2].min(plate_r[3]) * 0.42).floor().max(12.0);
-                mouse_icon(
-                    batch,
-                    atlas,
-                    [
-                        plate_r[0] + (plate_r[2] - side * 0.75) / 2.0,
-                        plate_r[1] + (plate_r[3] - side) / 2.0,
-                    ],
-                    side / 14.0,
-                    right,
-                );
+            for zone in 0..3 {
+                let r = self.touch.starling_menu.config.rect(zone, w, h);
+                let held = self.touch.starling_menu.fingers.iter().any(|f| match f.role {
+                    Role::Zone(right) => zone == usize::from(right),
+                    Role::Shift => zone == 2,
+                    _ => false,
+                });
+                draw_zone(batch, atlas, zone, r, held);
             }
-        }
-        if cursor_mode && !zones_hidden {
-            let r = shift_rect(w, h);
-            let held = self.touch.starling_menu.fingers.iter().any(|f| f.role == Role::Shift);
-            let inset = 6.0;
-            let plate_r = [r[0] + inset * 0.5, r[1] + inset, r[2] - inset * 1.5, r[3] - inset * 2.0];
-            plate(batch, atlas, plate_r, held, 120);
-            shift_icon(batch, atlas, plate_r, held);
         }
         // The mode button shows the current mode: a reticle in cursor mode, a touch ripple in tap mode.
         let r = toggle_rect(w, h);
@@ -584,7 +646,7 @@ impl Game<'_> {
         }
         if cursor_mode {
             let at = self.touch.starling_menu.at.unwrap_or((w / 2.0, h / 2.0));
-            crosshair(batch, atlas, [at.0, at.1], 1.0);
+            crosshair(batch, atlas, [at.0, at.1], 1.0, self.touch.starling_menu.down[0]);
         }
     }
 }
@@ -593,8 +655,26 @@ impl Game<'_> {
 fn plate(b: &mut HudBatch, a: &HudAtlas, r: touch::Rect, pressed: bool, alpha: u8) {
     let [x, y, w, h] = r;
     if let Some(sprite) = a.sprites.get("gui/bedrock/ui/joystick_knob").copied() {
+        // Nine slices: the corners and edges keep their shape however long or tall the plate is.
         let shade = if pressed { 170 } else { 255 };
-        b.rect_uv(x, y, w, h, sprite, rgba(shade, shade, shade, alpha));
+        let color = rgba(shade, shade, shade, alpha);
+        let (sw, sh) = (sprite.w as f32, sprite.h as f32);
+        let border = 3.0;
+        let d = (border * w.min(h) / sw).min(w / 2.0).min(h / 2.0).round().max(1.0);
+        let xs = [0.0, border, sw - border, sw];
+        let ys = [0.0, border, sh - border, sh];
+        let dx = [x, x + d, x + w - d, x + w];
+        let dy = [y, y + d, y + h - d, y + h];
+        for row in 0..3 {
+            for col in 0..3 {
+                let mut cell = sprite;
+                cell.u0 = sprite.u0 + (sprite.u1 - sprite.u0) * xs[col] / sw;
+                cell.u1 = sprite.u0 + (sprite.u1 - sprite.u0) * xs[col + 1] / sw;
+                cell.v0 = sprite.v0 + (sprite.v1 - sprite.v0) * ys[row] / sh;
+                cell.v1 = sprite.v0 + (sprite.v1 - sprite.v0) * ys[row + 1] / sh;
+                b.rect_uv(dx[col], dy[row], dx[col + 1] - dx[col], dy[row + 1] - dy[row], cell, color);
+            }
+        }
         return;
     }
     let lift = if pressed { 18 } else { 0 };
@@ -646,14 +726,47 @@ fn pixels(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32, rows: &[&str]) {
     }
 }
 
-/// The cursor: a clean white plus, one pixel thick, whose middle pixel is centred on the pointer.
-fn crosshair(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32) {
-    let arm = 5.0;
+/// The cursor: four short white arms around a gap, with a gold dot where the pointer is (red while the left
+/// button is down). Each arm has a soft shadow below and to the right, the way Minecraft draws its text, so it
+/// shows on bright ground and on dark, and it stays small enough not to hide what is under it.
+fn crosshair(b: &mut HudBatch, a: &HudAtlas, at: [f32; 2], u: f32, pressed: bool) {
     // The middle pixel spans [c, c + u): its middle is the pointer, not its top-left corner.
     let (cx, cy) = ((at[0] - 0.5 * u).round(), (at[1] - 0.5 * u).round());
     let white = rgba(255, 255, 255, 255);
-    b.fill(a, cx - arm * u, cy, (arm * 2.0 + 1.0) * u, u, white);
-    b.fill(a, cx, cy - arm * u, u, (arm * 2.0 + 1.0) * u, white);
+    let shade = rgba(0, 0, 0, 120);
+    let dot = if pressed { rgba(255, 70, 60, 255) } else { rgba(255, 196, 40, 255) };
+    // (x, y, width, height) of the four arms in cells around the middle one: a gap of two cells, arms of four.
+    let arms = [(-6, 0, 4, 1), (3, 0, 4, 1), (0, -6, 1, 4), (0, 3, 1, 4)];
+    for (ax, ay, aw, ah) in arms {
+        b.fill(a, cx + (ax as f32 + 1.0) * u, cy + (ay as f32 + 1.0) * u, aw as f32 * u, ah as f32 * u, shade);
+    }
+    b.fill(a, cx + u, cy + u, u, u, shade);
+    for (ax, ay, aw, ah) in arms {
+        b.fill(a, cx + ax as f32 * u, cy + ay as f32 * u, aw as f32 * u, ah as f32 * u, white);
+    }
+    b.fill(a, cx, cy, u, u, dot);
+}
+
+/// One click zone: its plate and icon. 0 left click, 1 right click, 2 the shift strip.
+pub(super) fn draw_zone(b: &mut HudBatch, a: &HudAtlas, zone: usize, r: touch::Rect, held: bool) {
+    let inset = 5.0;
+    let plate_r = [r[0] + inset, r[1] + inset, (r[2] - inset * 2.0).max(8.0), (r[3] - inset * 2.0).max(8.0)];
+    plate(b, a, plate_r, held, 120);
+    if zone == 2 {
+        shift_icon(b, a, plate_r, held);
+    } else {
+        let side = (plate_r[2].min(plate_r[3]) * 0.42).floor().max(12.0);
+        mouse_icon(
+            b,
+            a,
+            [
+                (plate_r[0] + (plate_r[2] - side * 0.75) / 2.0).round(),
+                (plate_r[1] + (plate_r[3] - side) / 2.0).round(),
+            ],
+            side / 14.0,
+            zone == 1,
+        );
+    }
 }
 
 /// Shift plus a click: the shift arrow over a plus over a mouse with its left button lit. Gold while held.
@@ -672,15 +785,16 @@ fn shift_icon(b: &mut HudBatch, a: &HudAtlas, r: touch::Rect, held: bool) {
     ];
     const PLUS: [&str; 5] = ["..#..", "..#..", "#####", "..#..", "..#.."];
     // Whole GUI pixels, so the cells stay crisp, and small enough for the strip however wide it is.
-    let u = (r[2] * 0.36 / 9.0).floor().max(2.0);
+    // About 27.6 cells tall in all (arrow, plus and mouse with their gaps): the height caps it too.
+    let u = (r[2] * 0.36 / 9.0).min(r[3] / 27.6).floor().max(1.0);
     let rows: Vec<String> = ARROW
         .iter()
         .map(|row| if held { row.replace('#', "g") } else { (*row).to_owned() })
         .collect();
     let rows: Vec<&str> = rows.iter().map(String::as_str).collect();
-    let mouse_u = (u * 0.8).round().max(2.0);
+    let mouse_u = (u * 0.8).round().max(1.0);
     let gap = u * 1.6;
-    let plus_u = (u * 0.8).round().max(2.0);
+    let plus_u = (u * 0.8).round().max(1.0);
     let total = 10.0 * u + gap + 5.0 * plus_u + gap + 13.0 * mouse_u;
     let mut y = (r[1] + (r[3] - total) / 2.0).round();
     let cx = r[0] + r[2] / 2.0;

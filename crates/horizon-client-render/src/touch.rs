@@ -30,8 +30,10 @@ pub fn set_current_hud_opacity_scale(scale: f32) {
 
 pub mod custom;
 pub mod editor;
+pub mod icons;
 pub use custom::CustomButton;
 pub use editor::{Editor, EditorDragKind, PickerStep};
+pub use icons::{ICON_COUNT, draw_icon, icon_name};
 pub mod layout;
 pub use layout::{
     Control, ControlStyle, JoystickMoveArea, JoystickStyle, Mode, Placement, PresetMeta, Settings,
@@ -576,9 +578,6 @@ impl TouchControls {
             return;
         }
         let (w, h) = (b.width, b.height);
-        if self.editor.is_some() {
-            self.draw_editor_toolbar(b, a);
-        }
         let state = self.state();
         for control in Control::ALL {
             if !self.visible_for_state(control, self.in_menu) {
@@ -725,6 +724,14 @@ impl TouchControls {
                         .fingers
                         .values()
                         .any(|(_, point)| layout::contains(p.rect(self.aspect()), *point));
+                if p.icon_id != 0 {
+                    // The player gave this button its own picture.
+                    let bounds = [x, y, size, size];
+                    text_button(b, a, bounds, "", pressed, color, false);
+                    let alpha = (opacity * 255.0).round() as u8;
+                    icons::draw_icon(b, a, p.icon_id, bounds, alpha);
+                    continue;
+                }
                 let themed = match control {
                     Control::Chat => Some("chat"),
                     Control::Pause => Some("pause"),
@@ -819,6 +826,7 @@ impl TouchControls {
         }
         self.draw_custom(b, a);
         if self.editor.is_some() {
+            self.draw_editor_toolbar(b, a);
             self.draw_editor(b, a);
         } else if let Some(point) = self.pointer() {
             let center = [point[0] * w, point[1] * h];

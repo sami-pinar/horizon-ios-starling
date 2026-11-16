@@ -388,7 +388,7 @@ impl Placement {
         self.size = self.size.clamp(0.045, 0.45);
         self.opacity = self.opacity.clamp(0.0, 1.0);
         self.shape = self.shape.min(5);
-        self.icon_id = self.icon_id.min(12);
+        self.icon_id = self.icon_id.min(super::icons::ICON_COUNT);
         self.width_ratio = if self.width_ratio.is_finite() && self.width_ratio > 0.05 {
             self.width_ratio.clamp(0.4, 3.2)
         } else {
