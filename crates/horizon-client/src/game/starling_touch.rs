@@ -3,7 +3,7 @@
 //! in place of the Pojav-style overlay of `touch.rs`, which keeps the menus. Fingers on a world screen belong
 //! to this module; the pad pipeline (`pad.rs`) does what a controller's buttons do.
 use super::Game;
-use horizon_client::hud::{HudBatch, rgba};
+use horizon_client::hud::HudBatch;
 use horizon_client_render::touch::{Control, Settings, TouchControls, camera_delta, hotbar_slot};
 use winit::{
     event::{Touch, TouchPhase},
@@ -211,8 +211,6 @@ impl Game<'_> {
         if let Some(size) = self.renderer.as_ref().map(|r| (r.config.width, r.config.height)) {
             self.touch.starling.controls.viewport(size.0.max(1), size.1.max(1));
         }
-        let (w, h) = (batch.width, batch.height);
-        batch.fill(&self.gui.atlas, 0.0, 0.0, w, h, rgba(6, 6, 10, 240));
         self.touch.starling.controls.draw(batch, &self.gui.atlas);
     }
 

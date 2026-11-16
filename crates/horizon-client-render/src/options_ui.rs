@@ -3488,6 +3488,10 @@ impl OptionsUi {
         self.size = (w, h);
         let in_world = self.in_world;
         ui::menu_background(batch, atlas, 0.0, 0.0, w, h, in_world);
+        if crate::touch::settings_covered() {
+            // The touch controls' settings take this screen's place.
+            return;
+        }
         let list = bottom > top;
         if list {
             ui::list_background(batch, atlas, top, bottom, in_world);

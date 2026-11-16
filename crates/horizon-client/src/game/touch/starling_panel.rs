@@ -70,10 +70,17 @@ const SENSITIVITY: (f32, f32) = (0.1, 3.0);
 const SPEED: (f32, f32) = (0.5, 3.0);
 const SIZE: (f32, f32) = (0.5, 2.0);
 
+/// Where the header ends and the footer begins, as on the vanilla options screens.
+fn list_bounds(h: f32) -> (f32, f32) {
+    (33.0, h - 33.0)
+}
+
 fn menu_items(w: f32, h: f32) -> Vec<(Id, [f32; 4])> {
     let left = ((w - (BUTTON_W * 2.0 + COLUMN_GAP)) / 2.0).floor();
     let right = left + BUTTON_W + COLUMN_GAP;
-    let top = ((h - 6.0 * ROW) / 2.0 + 8.0).floor().max(26.0);
+    let (list_top, list_bottom) = list_bounds(h);
+    // The five rows, centred between the separators.
+    let top = (list_top + ((list_bottom - list_top) - (5.0 * ROW - 4.0)) / 2.0).floor();
     let row = |i: f32| (top + i * ROW).floor();
     let wide = BUTTON_W * 2.0 + COLUMN_GAP;
     vec![
@@ -86,7 +93,8 @@ fn menu_items(w: f32, h: f32) -> Vec<(Id, [f32; 4])> {
         (Id::SavePreset, [right, row(3.0), BUTTON_W, BUTTON_H]),
         (Id::EditLayout, [left, row(4.0), BUTTON_W, BUTTON_H]),
         (Id::EditZones, [right, row(4.0), BUTTON_W, BUTTON_H]),
-        (Id::Done, [left, row(5.0), wide, BUTTON_H]),
+        // Done sits in the footer, 200 wide like vanilla's.
+        (Id::Done, [((w - 200.0) / 2.0).floor(), h - 27.0, 200.0, BUTTON_H]),
     ]
 }
 
@@ -116,6 +124,7 @@ impl Game<'_> {
     /// Opens the settings menu.
     pub(in crate::game) fn starling_panel_show(&mut self) {
         self.touch.starling_panel.panel = Panel::Menu;
+        horizon_client_render::touch::set_settings_cover(true);
         self.touch.starling_panel.finger = None;
         self.touch.starling_panel.drag = None;
         self.starling_panel_presets();
@@ -284,6 +293,7 @@ impl Game<'_> {
                 let _ = self.touch.starling.controls.settings.save();
                 self.touch.starling_menu.config.save();
                 self.touch.starling_panel.panel = Panel::Closed;
+                horizon_client_render::touch::set_settings_cover(false);
             }
             Id::Sensitivity | Id::CursorSpeed | Id::ButtonSize | Id::ZoneDone | Id::ZoneReset | Id::ZoneSnap => {}
         }
@@ -378,10 +388,16 @@ impl Game<'_> {
         match self.touch.starling_panel.panel {
             Panel::Closed => {}
             Panel::Menu => {
-                batch.fill(atlas, 0.0, 0.0, w, h, rgba(8, 8, 12, 252));
-                let title = Text::literal("Touch Controls");
+                // The vanilla options look: the dirt background, a list area between two separators, the title
+                // above and Done in the footer.
+                let (top, bottom) = list_bounds(h);
+                let in_world = self.player.is_some() && self.title.is_none();
+                ui::list_background(batch, atlas, top, bottom, in_world);
+                ui::separators(batch, atlas, top, bottom, in_world);
+                let title = Text::translate("horizon.pages.open.touch_controls", &[]);
+                let title = Text::literal(title.plain().trim_end_matches('.').to_owned());
                 let tw = atlas.font.width_text(&title);
-                batch.text_styled(atlas, &title, ((w - tw) / 2.0).floor(), 10.0, u32::MAX, true);
+                batch.text_styled(atlas, &title, ((w - tw) / 2.0).floor(), 12.0, u32::MAX, true);
                 let held = self.touch.starling_panel.finger.map(|(_, id)| id);
                 let settings = &self.touch.starling.controls.settings;
                 for (id, r) in menu_items(w, h) {
@@ -427,7 +443,6 @@ impl Game<'_> {
                 }
             }
             Panel::Zones => {
-                batch.fill(atlas, 0.0, 0.0, w, h, rgba(8, 8, 12, 215));
                 let config = &self.touch.starling_menu.config;
                 if config.snap {
                     let line = rgba(255, 255, 255, 22);

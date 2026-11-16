@@ -2,6 +2,13 @@
 
 Newest first. One entry per change: what, why, how it was checked.
 
+## 2026-11-16: Native look for the touch settings, monochrome icons
+* The Touch Controls settings take the place of the options screen (`set_settings_cover`: the screen draws only its
+  background) and use the vanilla pieces: the blurred background, the list area between two separators, the title
+  and Done in the footer. They no longer sit on a black fill over the old page.
+* The icons are single-colour dark silhouettes like the Bedrock control icons (no colours, no shadow); detail is
+  made with gaps. Same 28 pictures, redrawn.
+
 ## 2026-11-16: Touch Controls menu, icons, cursor zones, custom buttons that work
 * **Custom buttons now do something**: their key events were dropped in `starling_frame`. `starling_token` presses the
   key, mouse button, wheel step or game action (`action:key.pickItem` is the key it is bound to) through the same

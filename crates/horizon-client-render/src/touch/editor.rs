@@ -449,14 +449,7 @@ impl TouchControls {
             );
             plate(b, a, [0.51, 0.79, 0.17, 0.07], "Size", e.option == Some(0));
             if let Some(option) = e.option {
-                b.fill(
-                    a,
-                    w * 0.31,
-                    h * 0.59,
-                    w * 0.38,
-                    h * 0.18,
-                    rgba(15, 15, 15, 235),
-                );
+                b.fill(a, w * 0.31, h * 0.59, w * 0.38, h * 0.18, rgba(16, 16, 18, 238));
                 plate(
                     b,
                     a,
@@ -505,14 +498,7 @@ impl TouchControls {
             }
         }
         if e.palette {
-            b.fill(
-                a,
-                w * 0.2,
-                h * 0.14,
-                w * 0.6,
-                h * 0.72,
-                rgba(15, 15, 15, 245),
-            );
+            b.fill(a, w * 0.2, h * 0.14, w * 0.6, h * 0.72, rgba(16, 16, 18, 238));
             for (index, control) in Control::ALL.into_iter().enumerate() {
                 let shown = self.visible(control);
                 plate(
@@ -908,14 +894,7 @@ impl TouchControls {
                 } else {
                     p.opacity
                 };
-                b.fill(
-                    a,
-                    w * 0.3,
-                    h * 0.66,
-                    w * 0.4,
-                    h * 0.11,
-                    rgba(15, 15, 15, 235),
-                );
+                b.fill(a, w * 0.3, h * 0.66, w * 0.4, h * 0.11, rgba(16, 16, 18, 238));
                 let percent = if option == 0 {
                     p.size * 100.0
                 } else {
@@ -952,14 +931,7 @@ impl TouchControls {
             }
         }
         if e.key_picker {
-            b.fill(
-                a,
-                w * 0.12,
-                h * 0.14,
-                w * 0.76,
-                h * 0.81,
-                rgba(15, 15, 15, 250),
-            );
+            b.fill(a, w * 0.12, h * 0.14, w * 0.76, h * 0.81, rgba(16, 16, 18, 238));
             plate(b, a, [0.15, 0.16, 0.33, 0.06], "Game action", !e.raw_keys);
             plate(b, a, [0.52, 0.16, 0.33, 0.06], "Keyboard key", e.raw_keys);
             for (i, (_, label)) in super::custom::choices(e.raw_keys)
@@ -1033,7 +1005,7 @@ impl TouchControls {
     fn draw_icon_picker(&self, b: &mut HudBatch, a: &HudAtlas, e: &Editor) {
         let (w, h) = (b.width, b.height);
         b.fill(a, 0.0, 0.0, w, h, rgba(0, 0, 0, 120));
-        b.fill(a, w * 0.1, h * 0.12, w * 0.8, h * 0.78, rgba(15, 15, 15, 250));
+        b.fill(a, w * 0.1, h * 0.12, w * 0.8, h * 0.78, rgba(16, 16, 18, 238));
         let title = "Choose an icon";
         let tw = HudBatch::text_width(a, title);
         b.text(a, title, ((w - tw) / 2.0).floor(), h * 0.17, rgba(245, 245, 245, 255), true);

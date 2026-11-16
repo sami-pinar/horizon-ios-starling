@@ -28,6 +28,16 @@ pub fn set_current_hud_opacity_scale(scale: f32) {
     LAST_HUD_OPACITY_BITS.store(clamped.to_bits(), Ordering::Relaxed);
 }
 
+/// While the touch controls' settings cover the options screen: the screen draws only its background, so the
+/// settings take its place.
+static SETTINGS_COVER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub fn set_settings_cover(on: bool) {
+    SETTINGS_COVER.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+pub fn settings_covered() -> bool {
+    SETTINGS_COVER.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub mod custom;
 pub mod editor;
 pub mod icons;
